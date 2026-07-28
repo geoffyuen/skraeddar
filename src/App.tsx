@@ -42,6 +42,7 @@ const HOLE_SPACING_Y = 20;
 const EDGE_MARGIN = 20;
 const BOARD_RADIUS = 8;
 const COUNTERSINK_DEPTH = 10;
+const SHOW_OUTLINE = false;
 
 const loadSettings = () => {
   try {
@@ -154,6 +155,19 @@ const SkadisGenerator = () => {
   useEffect(() => {
     if (!sceneRef.current) return;
 
+    sceneRef.current.children.forEach(child => {
+      if (child.type !== 'AmbientLight' && child.type !== 'DirectionalLight') {
+        if (child instanceof THREE.Mesh) {
+          child.geometry.dispose();
+          if (Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+          else child.material.dispose();
+        }
+        if (child instanceof THREE.Line) {
+          child.geometry.dispose();
+          child.material.dispose();
+        }
+      }
+    });
     sceneRef.current.children = sceneRef.current.children.filter(
       (child: THREE.Object3D) => child.type === 'AmbientLight' || 
                child.type === 'DirectionalLight'
@@ -294,8 +308,9 @@ const SkadisGenerator = () => {
     board.userData = { totalHoles };
     sceneRef.current.add(board);
 
-    const outlinePoints = [];
-    const outlineRadius = BOARD_RADIUS;
+    if (SHOW_OUTLINE) {
+      const outlinePoints = [];
+      const outlineRadius = BOARD_RADIUS;
     const segments = 16;
 
     const bl = roundBottomLeft;
@@ -382,6 +397,7 @@ const SkadisGenerator = () => {
     const outline = new THREE.Line(outlineGeometry, outlineMaterial);
     outline.position.set(width / 2, height / 2, -thickness);
     sceneRef.current.add(outline);
+    }
 
     if (controlsRef.current) {
       controlsRef.current.target.set(width / 2, height / 2, 0);
