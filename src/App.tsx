@@ -780,55 +780,57 @@ const SkadisGenerator = () => {
                   <span className="text-sm font-medium text-gray-900 block">Screw holes</span>
                 </div>
               </label>
+
+              {withMountingHoles && (
+                <>
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Screw Hole Diameter: {screwHoleDiameter}mm
+                    </label>
+                    <input
+                      type="range"
+                      min="3"
+                      max="8"
+                      step="0.05"
+                      value={screwHoleDiameter}
+                      onChange={(e) => setScrewHoleDiameter(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                      style={{
+                        background: `linear-gradient(to right, #000 0%, #000 ${((screwHoleDiameter - 3) / (8 - 3)) * 100}%, #e5e7eb ${((screwHoleDiameter - 3) / (8 - 3)) * 100}%, #e5e7eb 100%)`
+                      }}
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>3mm</span>
+                      <span>8mm</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Screw Hole Inset: {screwHoleInset}mm
+                    </label>
+                    <input
+                      type="range"
+                      min="5"
+                      max="20"
+                      step="0.05"
+                      value={screwHoleInset}
+                      onChange={(e) => setScrewHoleInset(Number(e.target.value))}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                      style={{
+                        background: `linear-gradient(to right, #000 0%, #000 ${((screwHoleInset - 5) / (20 - 5)) * 100}%, #e5e7eb ${((screwHoleInset - 5) / (20 - 5)) * 100}%, #e5e7eb 100%)`
+                      }}
+                    />
+                    <div className="flex justify-between text-xs text-gray-500 mt-1">
+                      <span>5mm</span>
+                      <span>20mm</span>
+                    </div>
+                  </div>
+                </>
+              )}
+
             </div>
 
-            {withMountingHoles && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Screw Hole Diameter: {screwHoleDiameter}mm
-                  </label>
-                  <input
-                    type="range"
-                    min="3"
-                    max="8"
-                    step="0.05"
-                    value={screwHoleDiameter}
-                    onChange={(e) => setScrewHoleDiameter(Number(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
-                    style={{
-                      background: `linear-gradient(to right, #000 0%, #000 ${((screwHoleDiameter - 3) / (8 - 3)) * 100}%, #e5e7eb ${((screwHoleDiameter - 3) / (8 - 3)) * 100}%, #e5e7eb 100%)`
-                    }}
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>3mm</span>
-                    <span>8mm</span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Screw Hole Inset: {screwHoleInset}mm
-                  </label>
-                  <input
-                    type="range"
-                    min="5"
-                    max="20"
-                    step="0.05"
-                    value={screwHoleInset}
-                    onChange={(e) => setScrewHoleInset(Number(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
-                    style={{
-                      background: `linear-gradient(to right, #000 0%, #000 ${((screwHoleInset - 5) / (20 - 5)) * 100}%, #e5e7eb ${((screwHoleInset - 5) / (20 - 5)) * 100}%, #e5e7eb 100%)`
-                    }}
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>5mm</span>
-                    <span>20mm</span>
-                  </div>
-                </div>
-              </>
-            )}
 
             <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
               <div className="mb-3">
