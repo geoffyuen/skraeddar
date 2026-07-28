@@ -3,6 +3,15 @@ import * as THREE from 'three';
 
 const STORAGE_KEY = 'skraeddar_settings';
 
+const DEFAULTS = {
+  width: 280,
+  height: 280,
+  thickness: 5,
+  withMountingHoles: true,
+  screwHoleDiameter: 5,
+  screwHoleInset: 8.75,
+};
+
 const loadSettings = () => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -14,12 +23,12 @@ const loadSettings = () => {
 
 const SkadisGenerator = () => {
   const saved = loadSettings();
-  const [width, setWidth] = useState(saved?.width ?? 280);
-  const [height, setHeight] = useState(saved?.height ?? 280);
-  const [thickness, setThickness] = useState(saved?.thickness ?? 5);
-  const [withMountingHoles, setWithMountingHoles] = useState(saved?.withMountingHoles ?? true);
-  const [screwHoleDiameter, setScrewHoleDiameter] = useState(saved?.screwHoleDiameter ?? 5);
-  const [screwHoleInset, setScrewHoleInset] = useState(saved?.screwHoleInset ?? 8.75);
+  const [width, setWidth] = useState(saved?.width ?? DEFAULTS.width);
+  const [height, setHeight] = useState(saved?.height ?? DEFAULTS.height);
+  const [thickness, setThickness] = useState(saved?.thickness ?? DEFAULTS.thickness);
+  const [withMountingHoles, setWithMountingHoles] = useState(saved?.withMountingHoles ?? DEFAULTS.withMountingHoles);
+  const [screwHoleDiameter, setScrewHoleDiameter] = useState(saved?.screwHoleDiameter ?? DEFAULTS.screwHoleDiameter);
+  const [screwHoleInset, setScrewHoleInset] = useState(saved?.screwHoleInset ?? DEFAULTS.screwHoleInset);
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -692,6 +701,20 @@ const SkadisGenerator = () => {
             <p className="text-xs text-gray-500 text-center">
               Print 4 spacers separately if you added mounting holes.
             </p>
+
+            <button
+              onClick={() => {
+                setWidth(DEFAULTS.width);
+                setHeight(DEFAULTS.height);
+                setThickness(DEFAULTS.thickness);
+                setWithMountingHoles(DEFAULTS.withMountingHoles);
+                setScrewHoleDiameter(DEFAULTS.screwHoleDiameter);
+                setScrewHoleInset(DEFAULTS.screwHoleInset);
+              }}
+              className="w-full bg-white hover:bg-gray-100 text-gray-700 font-medium py-3 px-4 rounded-lg border border-gray-300 transition-colors"
+            >
+              Reset to Defaults
+            </button>
           </div>
         </div>
 
