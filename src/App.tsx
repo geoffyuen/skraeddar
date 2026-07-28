@@ -670,6 +670,14 @@ const SkadisGenerator = () => {
     URL.revokeObjectURL(url);
   };
 
+  const resetView = () => {
+    if (!cameraRef.current || !controlsRef.current) return;
+    const maxDim = Math.max(width, height);
+    cameraRef.current.position.set(maxDim * 0.7, maxDim * 0.7, maxDim * 1.5);
+    controlsRef.current.target.set(width / 2, height / 2, 0);
+    controlsRef.current.update();
+  };
+
   return (
     <div className="w-full h-screen flex flex-col bg-gray-50">
       <div className="bg-white shadow-sm border-b border-gray-200 p-3 md:p-4">
@@ -956,6 +964,12 @@ const SkadisGenerator = () => {
 
         <div className="flex-1 relative min-h-[300px] md:min-h-0">
           <div ref={mountRef} className="w-full h-full min-h-[300px]" />
+          <button
+            onClick={resetView}
+            className="absolute top-3 left-3 bg-white/80 hover:bg-white text-gray-700 text-xs font-medium py-1.5 px-3 rounded border border-gray-300 shadow-sm transition-colors"
+          >
+            Reset view
+          </button>
         </div>
       </div>
     </div>
