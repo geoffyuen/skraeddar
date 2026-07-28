@@ -832,44 +832,46 @@ const SkadisGenerator = () => {
 
             <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
               <div className="mb-3">
-                <span className="text-sm font-medium text-gray-900">Edge Extensions</span>
+                <span className="text-sm font-medium text-gray-900">Edge Holes</span>
               </div>
               <div className="space-y-2">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={extendLeft}
-                    onChange={(e) => setExtendLeft(e.target.checked)}
-                    className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
-                  />
-                  <span className="text-sm text-gray-700">Extend past left edge</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={extendRight}
-                    onChange={(e) => setExtendRight(e.target.checked)}
-                    className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
-                  />
-                  <span className="text-sm text-gray-700">Extend past right edge</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
+                <label className="flex items-center justify-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={extendTop}
                     onChange={(e) => setExtendTop(e.target.checked)}
                     className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
                   />
-                  <span className="text-sm text-gray-700">Extend past top edge</span>
+                  <span className="text-sm text-gray-700">Top</span>
                 </label>
-                <label className="flex items-center gap-3 cursor-pointer">
+                <div className="flex gap-4 justify-between">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={extendLeft}
+                      onChange={(e) => setExtendLeft(e.target.checked)}
+                      className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
+                    />
+                    <span className="text-sm text-gray-700">Left</span>
+                  </label>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={extendRight}
+                      onChange={(e) => setExtendRight(e.target.checked)}
+                      className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
+                    />
+                    <span className="text-sm text-gray-700">Right</span>
+                  </label>
+                </div>
+                <label className="flex items-center justify-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={extendBottom}
                     onChange={(e) => setExtendBottom(e.target.checked)}
                     className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
                   />
-                  <span className="text-sm text-gray-700">Extend past bottom edge</span>
+                  <span className="text-sm text-gray-700">Bottom</span>
                 </label>
               </div>
             </div>
@@ -919,26 +921,6 @@ const SkadisGenerator = () => {
             </div>
 
             <button
-              onClick={generateSTL}
-              className="w-full bg-black hover:bg-gray-800 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
-            >
-              <DownloadIcon />
-              Download Pegboard STL
-            </button>
-
-            <button
-              onClick={generateSpacerSTL}
-              className="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
-            >
-              <DownloadIcon />
-              Download 10mm Spacer STL
-            </button>
-
-            <p className="text-xs text-gray-500 text-center">
-              Print 4 spacers separately if you added mounting holes.
-            </p>
-
-            <button
               onClick={() => {
                 setWidth(DEFAULTS.width);
                 setHeight(DEFAULTS.height);
@@ -958,7 +940,28 @@ const SkadisGenerator = () => {
               className="w-full bg-white hover:bg-gray-100 text-gray-700 font-medium py-3 px-4 rounded-lg border border-gray-300 transition-colors"
             >
               Reset to Defaults
+            </button>            
+
+            <button
+              onClick={generateSTL}
+              className="w-full bg-black hover:bg-gray-800 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-between gap-2"
+            >
+              Pegboard STL
+              <DownloadIcon />
             </button>
+
+            <button
+              onClick={generateSpacerSTL}
+              className="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-between gap-2"
+            >
+              10mm Spacer STL
+              <DownloadIcon />
+            </button>
+
+            <p className="text-xs text-gray-500 text-center">
+              Print 4 spacers separately if you added mounting holes.
+            </p>
+
           </div>
         </div>
 
