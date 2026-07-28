@@ -1,13 +1,25 @@
 import { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
+const STORAGE_KEY = 'skraeddar_settings';
+
+const loadSettings = () => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+};
+
 const SkadisGenerator = () => {
-  const [width, setWidth] = useState(280);
-  const [height, setHeight] = useState(280);
-  const [thickness, setThickness] = useState(5);
-  const [withMountingHoles, setWithMountingHoles] = useState(true);
-  const [screwHoleDiameter, setScrewHoleDiameter] = useState(5);
-  const [screwHoleInset, setScrewHoleInset] = useState(8.75);
+  const saved = loadSettings();
+  const [width, setWidth] = useState(saved?.width ?? 280);
+  const [height, setHeight] = useState(saved?.height ?? 280);
+  const [thickness, setThickness] = useState(saved?.thickness ?? 5);
+  const [withMountingHoles, setWithMountingHoles] = useState(saved?.withMountingHoles ?? true);
+  const [screwHoleDiameter, setScrewHoleDiameter] = useState(saved?.screwHoleDiameter ?? 5);
+  const [screwHoleInset, setScrewHoleInset] = useState(saved?.screwHoleInset ?? 8.75);
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -20,6 +32,12 @@ const SkadisGenerator = () => {
   const EDGE_MARGIN = 20;
   const BOARD_RADIUS = 8;
   const COUNTERSINK_DEPTH = 10;
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset
+    }));
+  }, [width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset]);
 
   useEffect(() => {
     if (!mountRef.current) return;

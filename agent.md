@@ -4,7 +4,7 @@
 
 Skraeddar is a browser-based tool for creating custom 3D-printable pegboard panels compatible with IKEA Skadis. Users adjust dimensions and options in a settings panel, preview the board live in 3D, and export STL files for printing. The exported boards work with Skadis-compatible accessories found on Printables, Makerworld, and similar platforms.
 
-The entire application is a single React component (`src/App.tsx`, ~640 lines) with no backend, no routing, and no external data dependencies.
+The entire application is a single React component (`src/App.tsx`, ~640 lines) with no backend, no routing, and no external data dependencies. Settings are persisted to `localStorage` and restored on load.
 
 ## Tech Stack
 
