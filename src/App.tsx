@@ -14,6 +14,10 @@ const DEFAULTS = {
   extendBottom: false,
   extendLeft: false,
   extendRight: false,
+  roundTopLeft: true,
+  roundTopRight: true,
+  roundBottomLeft: true,
+  roundBottomRight: true,
 };
 
 const addPillHole = (shape: THREE.Shape, xPos: number, yPos: number) => {
@@ -59,6 +63,10 @@ const SkadisGenerator = () => {
   const [extendBottom, setExtendBottom] = useState(saved?.extendBottom ?? DEFAULTS.extendBottom);
   const [extendLeft, setExtendLeft] = useState(saved?.extendLeft ?? DEFAULTS.extendLeft);
   const [extendRight, setExtendRight] = useState(saved?.extendRight ?? DEFAULTS.extendRight);
+  const [roundTopLeft, setRoundTopLeft] = useState(saved?.roundTopLeft ?? DEFAULTS.roundTopLeft);
+  const [roundTopRight, setRoundTopRight] = useState(saved?.roundTopRight ?? DEFAULTS.roundTopRight);
+  const [roundBottomLeft, setRoundBottomLeft] = useState(saved?.roundBottomLeft ?? DEFAULTS.roundBottomLeft);
+  const [roundBottomRight, setRoundBottomRight] = useState(saved?.roundBottomRight ?? DEFAULTS.roundBottomRight);
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -67,10 +75,12 @@ const SkadisGenerator = () => {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset,
-      extendTop, extendBottom, extendLeft, extendRight
+      extendTop, extendBottom, extendLeft, extendRight,
+      roundTopLeft, roundTopRight, roundBottomLeft, roundBottomRight
     }));
   }, [width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset,
-      extendTop, extendBottom, extendLeft, extendRight]);
+      extendTop, extendBottom, extendLeft, extendRight,
+      roundTopLeft, roundTopRight, roundBottomLeft, roundBottomRight]);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -187,7 +197,11 @@ const SkadisGenerator = () => {
     const hw = HOLE_WIDTH / 2;
     const hh = HOLE_HEIGHT / 2;
 
-    shape.moveTo(-width/2 + r, -height/2);
+    if (roundBottomLeft) {
+      shape.moveTo(-width/2 + r, -height/2);
+    } else {
+      shape.moveTo(-width/2, -height/2);
+    }
 
     if (extendBottom) {
       for (let i = 0; i < holesX; i++) {
@@ -201,9 +215,12 @@ const SkadisGenerator = () => {
         shape.lineTo(xPos + hw, -height/2);
       }
     }
-    shape.lineTo(width/2 - r, -height/2);
-
-    shape.quadraticCurveTo(width/2, -height/2, width/2, -height/2 + r);
+    if (roundBottomRight) {
+      shape.lineTo(width/2 - r, -height/2);
+      shape.quadraticCurveTo(width/2, -height/2, width/2, -height/2 + r);
+    } else {
+      shape.lineTo(width/2, -height/2);
+    }
 
     if (extendRight) {
       for (let j = 1; j < holesY; j += 2) {
@@ -214,9 +231,12 @@ const SkadisGenerator = () => {
         shape.quadraticCurveTo(width/2 - hw, yPos + hh, width/2, yPos + hh);
       }
     }
-    shape.lineTo(width/2, height/2 - r);
-
-    shape.quadraticCurveTo(width/2, height/2, width/2 - r, height/2);
+    if (roundTopRight) {
+      shape.lineTo(width/2, height/2 - r);
+      shape.quadraticCurveTo(width/2, height/2, width/2 - r, height/2);
+    } else {
+      shape.lineTo(width/2, height/2);
+    }
 
     if (extendTop) {
       for (let i = holesX - 1; i >= 0; i--) {
@@ -230,9 +250,12 @@ const SkadisGenerator = () => {
         shape.lineTo(xPos - hw, height/2);
       }
     }
-    shape.lineTo(-width/2 + r, height/2);
-
-    shape.quadraticCurveTo(-width/2, height/2, -width/2, height/2 - r);
+    if (roundTopLeft) {
+      shape.lineTo(-width/2 + r, height/2);
+      shape.quadraticCurveTo(-width/2, height/2, -width/2, height/2 - r);
+    } else {
+      shape.lineTo(-width/2, height/2);
+    }
 
     if (extendLeft) {
       for (let j = holesY - 1 - (holesY % 2); j >= 0; j -= 2) {
@@ -243,9 +266,12 @@ const SkadisGenerator = () => {
         shape.quadraticCurveTo(-width/2 + hw, yPos - hh, -width/2, yPos - hh);
       }
     }
-    shape.lineTo(-width/2, -height/2 + r);
-
-    shape.quadraticCurveTo(-width/2, -height/2, -width/2 + r, -height/2);
+    if (roundBottomLeft) {
+      shape.lineTo(-width/2, -height/2 + r);
+      shape.quadraticCurveTo(-width/2, -height/2, -width/2 + r, -height/2);
+    } else {
+      shape.lineTo(-width/2, -height/2);
+    }
 
     let totalHoles = 0;
     for (let i = 0; i < holesX; i++) {
@@ -292,56 +318,84 @@ const SkadisGenerator = () => {
     const outlinePoints = [];
     const outlineRadius = BOARD_RADIUS;
     const segments = 16;
-    
+
+    const bl = roundBottomLeft;
+    const br = roundBottomRight;
+    const tr = roundTopRight;
+    const tl = roundTopLeft;
+    // Bottom edge (left to right)
     for (let i = 0; i <= segments; i++) {
       const t = i / segments;
-      outlinePoints.push(new THREE.Vector3(-width/2 + outlineRadius + t * (width - 2*outlineRadius), -height/2, 0));
+      const xStart = -width/2 + (bl ? outlineRadius : 0);
+      const xEnd = width/2 - (br ? outlineRadius : 0);
+      outlinePoints.push(new THREE.Vector3(xStart + t * (xEnd - xStart), -height/2, 0));
     }
-    for (let i = 0; i <= segments; i++) {
-      const angle = -Math.PI/2 + (i / segments) * Math.PI/2;
-      outlinePoints.push(new THREE.Vector3(
-        width/2 - outlineRadius + Math.cos(angle) * outlineRadius,
-        -height/2 + outlineRadius + Math.sin(angle) * outlineRadius,
-        0
-      ));
+    // Bottom-right corner arc
+    if (br) {
+      for (let i = 0; i <= segments; i++) {
+        const angle = -Math.PI/2 + (i / segments) * Math.PI/2;
+        outlinePoints.push(new THREE.Vector3(
+          width/2 - outlineRadius + Math.cos(angle) * outlineRadius,
+          -height/2 + outlineRadius + Math.sin(angle) * outlineRadius,
+          0
+        ));
+      }
     }
-    for (let i = 0; i <= segments; i++) {
-      const t = i / segments;
-      outlinePoints.push(new THREE.Vector3(width/2, -height/2 + outlineRadius + t * (height - 2*outlineRadius), 0));
-    }
-    for (let i = 0; i <= segments; i++) {
-      const angle = (i / segments) * Math.PI/2;
-      outlinePoints.push(new THREE.Vector3(
-        width/2 - outlineRadius + Math.cos(angle) * outlineRadius,
-        height/2 - outlineRadius + Math.sin(angle) * outlineRadius,
-        0
-      ));
-    }
+    // Right edge (bottom to top)
     for (let i = 0; i <= segments; i++) {
       const t = i / segments;
-      outlinePoints.push(new THREE.Vector3(width/2 - outlineRadius - t * (width - 2*outlineRadius), height/2, 0));
+      const yStart = -height/2 + (br ? outlineRadius : 0);
+      const yEnd = height/2 - (tr ? outlineRadius : 0);
+      outlinePoints.push(new THREE.Vector3(width/2, yStart + t * (yEnd - yStart), 0));
     }
-    for (let i = 0; i <= segments; i++) {
-      const angle = Math.PI/2 + (i / segments) * Math.PI/2;
-      outlinePoints.push(new THREE.Vector3(
-        -width/2 + outlineRadius + Math.cos(angle) * outlineRadius,
-        height/2 - outlineRadius + Math.sin(angle) * outlineRadius,
-        0
-      ));
+    // Top-right corner arc
+    if (tr) {
+      for (let i = 0; i <= segments; i++) {
+        const angle = (i / segments) * Math.PI/2;
+        outlinePoints.push(new THREE.Vector3(
+          width/2 - outlineRadius + Math.cos(angle) * outlineRadius,
+          height/2 - outlineRadius + Math.sin(angle) * outlineRadius,
+          0
+        ));
+      }
     }
+    // Top edge (right to left)
     for (let i = 0; i <= segments; i++) {
       const t = i / segments;
-      outlinePoints.push(new THREE.Vector3(-width/2, height/2 - outlineRadius - t * (height - 2*outlineRadius), 0));
+      const xStart = width/2 - (tr ? outlineRadius : 0);
+      const xEnd = -width/2 + (tl ? outlineRadius : 0);
+      outlinePoints.push(new THREE.Vector3(xStart - t * (xStart - xEnd), height/2, 0));
     }
+    // Top-left corner arc
+    if (tl) {
+      for (let i = 0; i <= segments; i++) {
+        const angle = Math.PI/2 + (i / segments) * Math.PI/2;
+        outlinePoints.push(new THREE.Vector3(
+          -width/2 + outlineRadius + Math.cos(angle) * outlineRadius,
+          height/2 - outlineRadius + Math.sin(angle) * outlineRadius,
+          0
+        ));
+      }
+    }
+    // Left edge (top to bottom)
     for (let i = 0; i <= segments; i++) {
-      const angle = Math.PI + (i / segments) * Math.PI/2;
-      outlinePoints.push(new THREE.Vector3(
-        -width/2 + outlineRadius + Math.cos(angle) * outlineRadius,
-        -height/2 + outlineRadius + Math.sin(angle) * outlineRadius,
-        0
-      ));
+      const t = i / segments;
+      const yStart = height/2 - (tl ? outlineRadius : 0);
+      const yEnd = -height/2 + (bl ? outlineRadius : 0);
+      outlinePoints.push(new THREE.Vector3(-width/2, yStart - t * (yStart - yEnd), 0));
     }
-    
+    // Bottom-left corner arc
+    if (bl) {
+      for (let i = 0; i <= segments; i++) {
+        const angle = Math.PI + (i / segments) * Math.PI/2;
+        outlinePoints.push(new THREE.Vector3(
+          -width/2 + outlineRadius + Math.cos(angle) * outlineRadius,
+          -height/2 + outlineRadius + Math.sin(angle) * outlineRadius,
+          0
+        ));
+      }
+    }
+
     outlinePoints.push(outlinePoints[0].clone());
     
     const outlineGeometry = new THREE.BufferGeometry().setFromPoints(outlinePoints);
@@ -372,7 +426,8 @@ const SkadisGenerator = () => {
       cameraRef.current.lookAt(width / 2, height / 2, 0);
     }
   }, [width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset,
-      extendTop, extendBottom, extendLeft, extendRight]);
+      extendTop, extendBottom, extendLeft, extendRight,
+      roundTopLeft, roundTopRight, roundBottomLeft, roundBottomRight]);
 
   const Logo = () => (
     <svg className="w-8 h-8 md:w-10 md:h-10" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
@@ -418,7 +473,11 @@ const SkadisGenerator = () => {
     const hw = HOLE_WIDTH / 2;
     const hh = HOLE_HEIGHT / 2;
 
-    shape.moveTo(-width/2 + r, -height/2);
+    if (roundBottomLeft) {
+      shape.moveTo(-width/2 + r, -height/2);
+    } else {
+      shape.moveTo(-width/2, -height/2);
+    }
 
     if (extendBottom) {
       for (let i = 0; i < holesX; i++) {
@@ -432,9 +491,12 @@ const SkadisGenerator = () => {
         shape.lineTo(xPos + hw, -height/2);
       }
     }
-    shape.lineTo(width/2 - r, -height/2);
-
-    shape.quadraticCurveTo(width/2, -height/2, width/2, -height/2 + r);
+    if (roundBottomRight) {
+      shape.lineTo(width/2 - r, -height/2);
+      shape.quadraticCurveTo(width/2, -height/2, width/2, -height/2 + r);
+    } else {
+      shape.lineTo(width/2, -height/2);
+    }
 
     if (extendRight) {
       for (let j = 1; j < holesY; j += 2) {
@@ -445,9 +507,12 @@ const SkadisGenerator = () => {
         shape.quadraticCurveTo(width/2 - hw, yPos + hh, width/2, yPos + hh);
       }
     }
-    shape.lineTo(width/2, height/2 - r);
-
-    shape.quadraticCurveTo(width/2, height/2, width/2 - r, height/2);
+    if (roundTopRight) {
+      shape.lineTo(width/2, height/2 - r);
+      shape.quadraticCurveTo(width/2, height/2, width/2 - r, height/2);
+    } else {
+      shape.lineTo(width/2, height/2);
+    }
 
     if (extendTop) {
       for (let i = holesX - 1; i >= 0; i--) {
@@ -461,9 +526,12 @@ const SkadisGenerator = () => {
         shape.lineTo(xPos - hw, height/2);
       }
     }
-    shape.lineTo(-width/2 + r, height/2);
-
-    shape.quadraticCurveTo(-width/2, height/2, -width/2, height/2 - r);
+    if (roundTopLeft) {
+      shape.lineTo(-width/2 + r, height/2);
+      shape.quadraticCurveTo(-width/2, height/2, -width/2, height/2 - r);
+    } else {
+      shape.lineTo(-width/2, height/2);
+    }
 
     if (extendLeft) {
       for (let j = holesY - 1 - (holesY % 2); j >= 0; j -= 2) {
@@ -474,9 +542,12 @@ const SkadisGenerator = () => {
         shape.quadraticCurveTo(-width/2 + hw, yPos - hh, -width/2, yPos - hh);
       }
     }
-    shape.lineTo(-width/2, -height/2 + r);
-
-    shape.quadraticCurveTo(-width/2, -height/2, -width/2 + r, -height/2);
+    if (roundBottomLeft) {
+      shape.lineTo(-width/2, -height/2 + r);
+      shape.quadraticCurveTo(-width/2, -height/2, -width/2 + r, -height/2);
+    } else {
+      shape.lineTo(-width/2, -height/2);
+    }
 
     for (let i = 0; i < holesX; i++) {
       for (let j = 0; j < holesY; j++) {
@@ -736,7 +807,7 @@ const SkadisGenerator = () => {
                   className="mt-0.5 w-5 h-5 accent-black cursor-pointer flex-shrink-0"
                 />
                 <div>
-                  <span className="text-sm font-medium text-gray-900 block">Add 4 corner holes for mounting</span>
+                  <span className="text-sm font-medium text-gray-900 block">Screw holes</span>
                 </div>
               </label>
             </div>
@@ -833,6 +904,50 @@ const SkadisGenerator = () => {
               </div>
             </div>
 
+            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+              <div className="mb-3">
+                <span className="text-sm font-medium text-gray-900">Rounded Corners</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={roundTopLeft}
+                    onChange={(e) => setRoundTopLeft(e.target.checked)}
+                    className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
+                  />
+                  <span className="text-sm text-gray-700">Top-left</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={roundTopRight}
+                    onChange={(e) => setRoundTopRight(e.target.checked)}
+                    className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
+                  />
+                  <span className="text-sm text-gray-700">Top-right</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={roundBottomLeft}
+                    onChange={(e) => setRoundBottomLeft(e.target.checked)}
+                    className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
+                  />
+                  <span className="text-sm text-gray-700">Bottom-left</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={roundBottomRight}
+                    onChange={(e) => setRoundBottomRight(e.target.checked)}
+                    className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
+                  />
+                  <span className="text-sm text-gray-700">Bottom-right</span>
+                </label>
+              </div>
+            </div>
+
             <button
               onClick={generateSTL}
               className="w-full bg-black hover:bg-gray-800 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
@@ -865,6 +980,10 @@ const SkadisGenerator = () => {
                 setExtendBottom(DEFAULTS.extendBottom);
                 setExtendLeft(DEFAULTS.extendLeft);
                 setExtendRight(DEFAULTS.extendRight);
+                setRoundTopLeft(DEFAULTS.roundTopLeft);
+                setRoundTopRight(DEFAULTS.roundTopRight);
+                setRoundBottomLeft(DEFAULTS.roundBottomLeft);
+                setRoundBottomRight(DEFAULTS.roundBottomRight);
               }}
               className="w-full bg-white hover:bg-gray-100 text-gray-700 font-medium py-3 px-4 rounded-lg border border-gray-300 transition-colors"
             >
