@@ -10,7 +10,33 @@ const DEFAULTS = {
   withMountingHoles: true,
   screwHoleDiameter: 5,
   screwHoleInset: 8.75,
+  extendTop: false,
+  extendBottom: false,
+  extendLeft: false,
+  extendRight: false,
 };
+
+const addPillHole = (shape: THREE.Shape, xPos: number, yPos: number) => {
+  const hw = HOLE_WIDTH / 2;
+  const hh = HOLE_HEIGHT / 2;
+  const holePath = new THREE.Path();
+  holePath.moveTo(xPos - hw, yPos - hh + hw);
+  holePath.lineTo(xPos - hw, yPos + hh - hw);
+  holePath.quadraticCurveTo(xPos - hw, yPos + hh, xPos, yPos + hh);
+  holePath.quadraticCurveTo(xPos + hw, yPos + hh, xPos + hw, yPos + hh - hw);
+  holePath.lineTo(xPos + hw, yPos - hh + hw);
+  holePath.quadraticCurveTo(xPos + hw, yPos - hh, xPos, yPos - hh);
+  holePath.quadraticCurveTo(xPos - hw, yPos - hh, xPos - hw, yPos - hh + hw);
+  shape.holes.push(holePath);
+};
+
+const HOLE_WIDTH = 5;
+const HOLE_HEIGHT = 15;
+const HOLE_SPACING_X = 40;
+const HOLE_SPACING_Y = 20;
+const EDGE_MARGIN = 20;
+const BOARD_RADIUS = 8;
+const COUNTERSINK_DEPTH = 10;
 
 const loadSettings = () => {
   try {
@@ -29,24 +55,22 @@ const SkadisGenerator = () => {
   const [withMountingHoles, setWithMountingHoles] = useState(saved?.withMountingHoles ?? DEFAULTS.withMountingHoles);
   const [screwHoleDiameter, setScrewHoleDiameter] = useState(saved?.screwHoleDiameter ?? DEFAULTS.screwHoleDiameter);
   const [screwHoleInset, setScrewHoleInset] = useState(saved?.screwHoleInset ?? DEFAULTS.screwHoleInset);
+  const [extendTop, setExtendTop] = useState(saved?.extendTop ?? DEFAULTS.extendTop);
+  const [extendBottom, setExtendBottom] = useState(saved?.extendBottom ?? DEFAULTS.extendBottom);
+  const [extendLeft, setExtendLeft] = useState(saved?.extendLeft ?? DEFAULTS.extendLeft);
+  const [extendRight, setExtendRight] = useState(saved?.extendRight ?? DEFAULTS.extendRight);
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
 
-  const HOLE_WIDTH = 5;
-  const HOLE_HEIGHT = 15;
-  const HOLE_SPACING_X = 40;
-  const HOLE_SPACING_Y = 20;
-  const EDGE_MARGIN = 20;
-  const BOARD_RADIUS = 8;
-  const COUNTERSINK_DEPTH = 10;
-
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset
+      width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset,
+      extendTop, extendBottom, extendLeft, extendRight
     }));
-  }, [width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset]);
+  }, [width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset,
+      extendTop, extendBottom, extendLeft, extendRight]);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -160,14 +184,67 @@ const SkadisGenerator = () => {
 
     const shape = new THREE.Shape();
     const r = BOARD_RADIUS;
+    const hw = HOLE_WIDTH / 2;
+    const hh = HOLE_HEIGHT / 2;
+
     shape.moveTo(-width/2 + r, -height/2);
+
+    if (extendBottom) {
+      for (let i = 0; i < holesX; i++) {
+        const xBoard = startX + i * HOLE_SPACING_X + HOLE_SPACING_X / 2;
+        if (xBoard < EDGE_MARGIN || xBoard > width - EDGE_MARGIN) continue;
+        const xPos = xBoard - width/2;
+        shape.lineTo(xPos - hw, -height/2);
+        shape.lineTo(xPos - hw, -height/2 + hh - hw);
+        shape.quadraticCurveTo(xPos - hw, -height/2 + hh, xPos, -height/2 + hh);
+        shape.quadraticCurveTo(xPos + hw, -height/2 + hh, xPos + hw, -height/2 + hh - hw);
+        shape.lineTo(xPos + hw, -height/2);
+      }
+    }
     shape.lineTo(width/2 - r, -height/2);
+
     shape.quadraticCurveTo(width/2, -height/2, width/2, -height/2 + r);
+
+    if (extendRight) {
+      for (let j = 1; j < holesY; j += 2) {
+        const yPos = startY + j * HOLE_SPACING_Y - height/2;
+        shape.lineTo(width/2, yPos - hh);
+        shape.quadraticCurveTo(width/2 - hw, yPos - hh, width/2 - hw, yPos - hh + hw);
+        shape.lineTo(width/2 - hw, yPos + hh - hw);
+        shape.quadraticCurveTo(width/2 - hw, yPos + hh, width/2, yPos + hh);
+      }
+    }
     shape.lineTo(width/2, height/2 - r);
+
     shape.quadraticCurveTo(width/2, height/2, width/2 - r, height/2);
+
+    if (extendTop) {
+      for (let i = holesX - 1; i >= 0; i--) {
+        const xBoard = startX + i * HOLE_SPACING_X + HOLE_SPACING_X / 2;
+        if (xBoard < EDGE_MARGIN || xBoard > width - EDGE_MARGIN) continue;
+        const xPos = xBoard - width/2;
+        shape.lineTo(xPos + hw, height/2);
+        shape.lineTo(xPos + hw, height/2 - hh + hw);
+        shape.quadraticCurveTo(xPos + hw, height/2 - hh, xPos, height/2 - hh);
+        shape.quadraticCurveTo(xPos - hw, height/2 - hh, xPos - hw, height/2 - hh + hw);
+        shape.lineTo(xPos - hw, height/2);
+      }
+    }
     shape.lineTo(-width/2 + r, height/2);
+
     shape.quadraticCurveTo(-width/2, height/2, -width/2, height/2 - r);
+
+    if (extendLeft) {
+      for (let j = holesY - 1 - (holesY % 2); j >= 0; j -= 2) {
+        const yPos = startY + j * HOLE_SPACING_Y - height/2;
+        shape.lineTo(-width/2, yPos + hh);
+        shape.quadraticCurveTo(-width/2 + hw, yPos + hh, -width/2 + hw, yPos + hh - hw);
+        shape.lineTo(-width/2 + hw, yPos - hh + hw);
+        shape.quadraticCurveTo(-width/2 + hw, yPos - hh, -width/2, yPos - hh);
+      }
+    }
     shape.lineTo(-width/2, -height/2 + r);
+
     shape.quadraticCurveTo(-width/2, -height/2, -width/2 + r, -height/2);
 
     let totalHoles = 0;
@@ -181,20 +258,8 @@ const SkadisGenerator = () => {
             startX + i * HOLE_SPACING_X + offsetX > width - EDGE_MARGIN) continue;
         
         totalHoles++;
-        
-        const holePath = new THREE.Path();
-        const hw = HOLE_WIDTH / 2;
-        const hh = HOLE_HEIGHT / 2;
-        
-        holePath.moveTo(xPos - hw, yPos - hh + hw);
-        holePath.lineTo(xPos - hw, yPos + hh - hw);
-        holePath.quadraticCurveTo(xPos - hw, yPos + hh, xPos, yPos + hh);
-        holePath.quadraticCurveTo(xPos + hw, yPos + hh, xPos + hw, yPos + hh - hw);
-        holePath.lineTo(xPos + hw, yPos - hh + hw);
-        holePath.quadraticCurveTo(xPos + hw, yPos - hh, xPos, yPos - hh);
-        holePath.quadraticCurveTo(xPos - hw, yPos - hh, xPos - hw, yPos - hh + hw);
-        
-        shape.holes.push(holePath);
+
+        addPillHole(shape, xPos, yPos);
       }
     }
 
@@ -306,7 +371,8 @@ const SkadisGenerator = () => {
       );
       cameraRef.current.lookAt(width / 2, height / 2, 0);
     }
-  }, [width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset]);
+  }, [width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset,
+      extendTop, extendBottom, extendLeft, extendRight]);
 
   const Logo = () => (
     <svg className="w-8 h-8 md:w-10 md:h-10" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
@@ -349,14 +415,67 @@ const SkadisGenerator = () => {
 
     const shape = new THREE.Shape();
     const r = BOARD_RADIUS;
+    const hw = HOLE_WIDTH / 2;
+    const hh = HOLE_HEIGHT / 2;
+
     shape.moveTo(-width/2 + r, -height/2);
+
+    if (extendBottom) {
+      for (let i = 0; i < holesX; i++) {
+        const xBoard = startX + i * HOLE_SPACING_X + HOLE_SPACING_X / 2;
+        if (xBoard < EDGE_MARGIN || xBoard > width - EDGE_MARGIN) continue;
+        const xPos = xBoard - width/2;
+        shape.lineTo(xPos - hw, -height/2);
+        shape.lineTo(xPos - hw, -height/2 + hh - hw);
+        shape.quadraticCurveTo(xPos - hw, -height/2 + hh, xPos, -height/2 + hh);
+        shape.quadraticCurveTo(xPos + hw, -height/2 + hh, xPos + hw, -height/2 + hh - hw);
+        shape.lineTo(xPos + hw, -height/2);
+      }
+    }
     shape.lineTo(width/2 - r, -height/2);
+
     shape.quadraticCurveTo(width/2, -height/2, width/2, -height/2 + r);
+
+    if (extendRight) {
+      for (let j = 1; j < holesY; j += 2) {
+        const yPos = startY + j * HOLE_SPACING_Y - height/2;
+        shape.lineTo(width/2, yPos - hh);
+        shape.quadraticCurveTo(width/2 - hw, yPos - hh, width/2 - hw, yPos - hh + hw);
+        shape.lineTo(width/2 - hw, yPos + hh - hw);
+        shape.quadraticCurveTo(width/2 - hw, yPos + hh, width/2, yPos + hh);
+      }
+    }
     shape.lineTo(width/2, height/2 - r);
+
     shape.quadraticCurveTo(width/2, height/2, width/2 - r, height/2);
+
+    if (extendTop) {
+      for (let i = holesX - 1; i >= 0; i--) {
+        const xBoard = startX + i * HOLE_SPACING_X + HOLE_SPACING_X / 2;
+        if (xBoard < EDGE_MARGIN || xBoard > width - EDGE_MARGIN) continue;
+        const xPos = xBoard - width/2;
+        shape.lineTo(xPos + hw, height/2);
+        shape.lineTo(xPos + hw, height/2 - hh + hw);
+        shape.quadraticCurveTo(xPos + hw, height/2 - hh, xPos, height/2 - hh);
+        shape.quadraticCurveTo(xPos - hw, height/2 - hh, xPos - hw, height/2 - hh + hw);
+        shape.lineTo(xPos - hw, height/2);
+      }
+    }
     shape.lineTo(-width/2 + r, height/2);
+
     shape.quadraticCurveTo(-width/2, height/2, -width/2, height/2 - r);
+
+    if (extendLeft) {
+      for (let j = holesY - 1 - (holesY % 2); j >= 0; j -= 2) {
+        const yPos = startY + j * HOLE_SPACING_Y - height/2;
+        shape.lineTo(-width/2, yPos + hh);
+        shape.quadraticCurveTo(-width/2 + hw, yPos + hh, -width/2 + hw, yPos + hh - hw);
+        shape.lineTo(-width/2 + hw, yPos - hh + hw);
+        shape.quadraticCurveTo(-width/2 + hw, yPos - hh, -width/2, yPos - hh);
+      }
+    }
     shape.lineTo(-width/2, -height/2 + r);
+
     shape.quadraticCurveTo(-width/2, -height/2, -width/2 + r, -height/2);
 
     for (let i = 0; i < holesX; i++) {
@@ -368,19 +487,7 @@ const SkadisGenerator = () => {
         if (startX + i * HOLE_SPACING_X + offsetX < EDGE_MARGIN || 
             startX + i * HOLE_SPACING_X + offsetX > width - EDGE_MARGIN) continue;
         
-        const holePath = new THREE.Path();
-        const hw = HOLE_WIDTH / 2;
-        const hh = HOLE_HEIGHT / 2;
-        
-        holePath.moveTo(xPos - hw, yPos - hh + hw);
-        holePath.lineTo(xPos - hw, yPos + hh - hw);
-        holePath.quadraticCurveTo(xPos - hw, yPos + hh, xPos, yPos + hh);
-        holePath.quadraticCurveTo(xPos + hw, yPos + hh, xPos + hw, yPos + hh - hw);
-        holePath.lineTo(xPos + hw, yPos - hh + hw);
-        holePath.quadraticCurveTo(xPos + hw, yPos - hh, xPos, yPos - hh);
-        holePath.quadraticCurveTo(xPos - hw, yPos - hh, xPos - hw, yPos - hh + hw);
-        
-        shape.holes.push(holePath);
+        addPillHole(shape, xPos, yPos);
       }
     }
 
@@ -682,6 +789,50 @@ const SkadisGenerator = () => {
               </>
             )}
 
+            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+              <div className="mb-3">
+                <span className="text-sm font-medium text-gray-900">Edge Extensions</span>
+              </div>
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={extendLeft}
+                    onChange={(e) => setExtendLeft(e.target.checked)}
+                    className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
+                  />
+                  <span className="text-sm text-gray-700">Extend past left edge</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={extendRight}
+                    onChange={(e) => setExtendRight(e.target.checked)}
+                    className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
+                  />
+                  <span className="text-sm text-gray-700">Extend past right edge</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={extendTop}
+                    onChange={(e) => setExtendTop(e.target.checked)}
+                    className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
+                  />
+                  <span className="text-sm text-gray-700">Extend past top edge</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={extendBottom}
+                    onChange={(e) => setExtendBottom(e.target.checked)}
+                    className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
+                  />
+                  <span className="text-sm text-gray-700">Extend past bottom edge</span>
+                </label>
+              </div>
+            </div>
+
             <button
               onClick={generateSTL}
               className="w-full bg-black hover:bg-gray-800 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
@@ -710,6 +861,10 @@ const SkadisGenerator = () => {
                 setWithMountingHoles(DEFAULTS.withMountingHoles);
                 setScrewHoleDiameter(DEFAULTS.screwHoleDiameter);
                 setScrewHoleInset(DEFAULTS.screwHoleInset);
+                setExtendTop(DEFAULTS.extendTop);
+                setExtendBottom(DEFAULTS.extendBottom);
+                setExtendLeft(DEFAULTS.extendLeft);
+                setExtendRight(DEFAULTS.extendRight);
               }}
               className="w-full bg-white hover:bg-gray-100 text-gray-700 font-medium py-3 px-4 rounded-lg border border-gray-300 transition-colors"
             >
