@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useDeferredValue } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
@@ -235,6 +235,12 @@ const SkadisGenerator = () => {
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
 
+  const deferredWidth = useDeferredValue(width);
+  const deferredHeight = useDeferredValue(height);
+  const deferredThickness = useDeferredValue(thickness);
+  const deferredScrewHoleDiameter = useDeferredValue(screwHoleDiameter);
+  const deferredScrewHoleInset = useDeferredValue(screwHoleInset);
+
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset,
@@ -313,6 +319,12 @@ const SkadisGenerator = () => {
   }, []);
 
   useEffect(() => {
+    const width = deferredWidth;
+    const height = deferredHeight;
+    const thickness = deferredThickness;
+    const screwHoleDiameter = deferredScrewHoleDiameter;
+    const screwHoleInset = deferredScrewHoleInset;
+
     if (!sceneRef.current) return;
 
     sceneRef.current.children.forEach(child => {
@@ -453,7 +465,7 @@ const SkadisGenerator = () => {
       controlsRef.current.target.set(width / 2, height / 2, 0);
       controlsRef.current.update();
     }
-  }, [width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset,
+  }, [deferredWidth, deferredHeight, deferredThickness, withMountingHoles, deferredScrewHoleDiameter, deferredScrewHoleInset,
       extendTop, extendBottom, extendLeft, extendRight,
       roundTopLeft, roundTopRight, roundBottomLeft, roundBottomRight]);
 
