@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 const STORAGE_KEY = 'skraeddar_settings';
 
@@ -71,6 +72,7 @@ const SkadisGenerator = () => {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const controlsRef = useRef<OrbitControls | null>(null);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
@@ -118,53 +120,30 @@ const SkadisGenerator = () => {
     };
     animate();
 
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(width / 2, height / 2, 0);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.15;
+    controls.minDistance = 50;
+    controls.maxDistance = 3000;
+    controls.update();
+    controlsRef.current = controls;
+
     const handleResize = () => {
-      if (!mountRef.current || !cameraRef.current || !rendererRef.current) return;
+      if (!mountRef.current || !cameraRef.current || !rendererRef.current || !controlsRef.current) return;
       const newWidth = mountRef.current.clientWidth;
       const newHeight = mountRef.current.clientHeight;
-      
+
       cameraRef.current.aspect = newWidth / newHeight;
       cameraRef.current.updateProjectionMatrix();
       rendererRef.current.setSize(newWidth, newHeight);
-      
-      const maxDim = Math.max(width, height);
-      const fov = cameraRef.current.fov * (Math.PI / 180);
-      const aspect = newWidth / newHeight;
-      const distance = Math.max(
-        maxDim / (2 * Math.tan(fov / 2)),
-        maxDim / (2 * Math.tan(fov / 2) * aspect)
-      ) * 1.3;
-      
-      cameraRef.current.position.set(
-        maxDim * 0.5,
-        maxDim * 0.5,
-        distance
-      );
-      cameraRef.current.lookAt(width / 2, height / 2, 0);
+      controlsRef.current.update();
     };
     window.addEventListener('resize', handleResize);
-    
-    handleResize();
-
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      if (!cameraRef.current) return;
-      
-      const target = new THREE.Vector3(width / 2, height / 2, 0);
-      const direction = new THREE.Vector3();
-      direction.subVectors(cameraRef.current.position, target).normalize();
-      
-      const distance = cameraRef.current.position.distanceTo(target);
-      const newDistance = Math.max(100, Math.min(3000, distance + e.deltaY * 0.5));
-      
-      cameraRef.current.position.copy(target).add(direction.multiplyScalar(newDistance));
-    };
-
-    renderer.domElement.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      renderer.domElement.removeEventListener('wheel', handleWheel);
+      controls.dispose();
       if (mountRef.current && renderer.domElement) {
         mountRef.current.removeChild(renderer.domElement);
       }
@@ -397,33 +376,16 @@ const SkadisGenerator = () => {
     }
 
     outlinePoints.push(outlinePoints[0].clone());
-    
+
     const outlineGeometry = new THREE.BufferGeometry().setFromPoints(outlinePoints);
     const outlineMaterial = new THREE.LineBasicMaterial({ color: 0x333333, linewidth: 2 });
     const outline = new THREE.Line(outlineGeometry, outlineMaterial);
     outline.position.set(width / 2, height / 2, -thickness);
     sceneRef.current.add(outline);
 
-
-
-    if (cameraRef.current) {
-      const containerWidth = mountRef.current?.clientWidth || window.innerWidth;
-      const containerHeight = mountRef.current?.clientHeight || window.innerHeight;
-      const maxDim = Math.max(width, height);
-      const fov = cameraRef.current.fov * (Math.PI / 180);
-      const aspect = containerWidth / containerHeight;
-      
-      const distance = Math.max(
-        maxDim / (2 * Math.tan(fov / 2)),
-        maxDim / (2 * Math.tan(fov / 2) * aspect)
-      ) * 1.3;
-      
-      cameraRef.current.position.set(
-        maxDim * 0.5,
-        maxDim * 0.5,
-        distance
-      );
-      cameraRef.current.lookAt(width / 2, height / 2, 0);
+    if (controlsRef.current) {
+      controlsRef.current.target.set(width / 2, height / 2, 0);
+      controlsRef.current.update();
     }
   }, [width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset,
       extendTop, extendBottom, extendLeft, extendRight,
