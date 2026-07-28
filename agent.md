@@ -57,6 +57,8 @@ Everything lives in `src/App.tsx` as the `SkadisGenerator` component.
 | `height`             | 280     | Board height in mm (80-800, step 40) |
 | `thickness`          | 5       | Board thickness in mm (2-8, step 0.5) |
 | `withMountingHoles`  | true    | Include 4 corner screw holes |
+| `screwHoleDiameter`  | 5       | Diameter of mounting holes in mm (3-8, step 0.5) |
+| `screwHoleInset`     | 8.75    | Distance from board edge to screw hole center in mm (5-20, step 0.25) |
 
 ### 3D Rendering
 
@@ -78,9 +80,9 @@ The pegboard shape is a `THREE.Shape` (rounded rectangle) with pill-shaped holes
 | `HOLE_SPACING_Y`      | 20mm   | Vertical distance between hole centers |
 | `EDGE_MARGIN`         | 20mm   | Margin from board edge where holes are excluded |
 | `BOARD_RADIUS`        | 8mm    | Corner rounding radius |
-| `SCREW_HOLE_DIAMETER` | 5mm    | Mounting hole diameter |
-| `SCREW_HOLE_INSET`    | 9mm    | Distance from edge to screw hole center |
 | `COUNTERSINK_DEPTH`   | 10mm   | Spacer height |
+
+Mounting hole diameter and inset are configurable via state variables (`screwHoleDiameter`, `screwHoleInset`).
 
 ### STL Export
 

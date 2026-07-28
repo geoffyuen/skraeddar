@@ -6,6 +6,8 @@ const SkadisGenerator = () => {
   const [height, setHeight] = useState(280);
   const [thickness, setThickness] = useState(5);
   const [withMountingHoles, setWithMountingHoles] = useState(true);
+  const [screwHoleDiameter, setScrewHoleDiameter] = useState(5);
+  const [screwHoleInset, setScrewHoleInset] = useState(8.75);
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -17,8 +19,6 @@ const SkadisGenerator = () => {
   const HOLE_SPACING_Y = 20;
   const EDGE_MARGIN = 20;
   const BOARD_RADIUS = 8;
-  const SCREW_HOLE_DIAMETER = 5;
-  const SCREW_HOLE_INSET = 10;
   const COUNTERSINK_DEPTH = 10;
 
   useEffect(() => {
@@ -125,10 +125,10 @@ const SkadisGenerator = () => {
     const startY = (height - (holesY - 1) * HOLE_SPACING_Y) / 2;
 
     const screwPositions = withMountingHoles ? [
-      { x: -width/2 + SCREW_HOLE_INSET, y: -height/2 + SCREW_HOLE_INSET },
-      { x: width/2 - SCREW_HOLE_INSET, y: -height/2 + SCREW_HOLE_INSET },
-      { x: -width/2 + SCREW_HOLE_INSET, y: height/2 - SCREW_HOLE_INSET },
-      { x: width/2 - SCREW_HOLE_INSET, y: height/2 - SCREW_HOLE_INSET }
+      { x: -width/2 + screwHoleInset, y: -height/2 + screwHoleInset },
+      { x: width/2 - screwHoleInset, y: -height/2 + screwHoleInset },
+      { x: -width/2 + screwHoleInset, y: height/2 - screwHoleInset },
+      { x: width/2 - screwHoleInset, y: height/2 - screwHoleInset }
     ] : [];
 
     const shape = new THREE.Shape();
@@ -173,7 +173,7 @@ const SkadisGenerator = () => {
 
     screwPositions.forEach(pos => {
       const screwHole = new THREE.Path();
-      const radius = SCREW_HOLE_DIAMETER / 2;
+      const radius = screwHoleDiameter / 2;
       screwHole.absarc(pos.x, pos.y, radius, 0, Math.PI * 2, false);
       shape.holes.push(screwHole);
     });
@@ -279,7 +279,7 @@ const SkadisGenerator = () => {
       );
       cameraRef.current.lookAt(width / 2, height / 2, 0);
     }
-  }, [width, height, thickness, withMountingHoles]);
+  }, [width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset]);
 
   const Logo = () => (
     <svg className="w-8 h-8 md:w-10 md:h-10" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
@@ -360,15 +360,15 @@ const SkadisGenerator = () => {
     // CRITICAL: Only add mounting holes if explicitly enabled
     if (withMountingHoles === true) {
       const mountingHolePositions = [
-        { x: -width/2 + SCREW_HOLE_INSET, y: -height/2 + SCREW_HOLE_INSET },
-        { x: width/2 - SCREW_HOLE_INSET, y: -height/2 + SCREW_HOLE_INSET },
-        { x: -width/2 + SCREW_HOLE_INSET, y: height/2 - SCREW_HOLE_INSET },
-        { x: width/2 - SCREW_HOLE_INSET, y: height/2 - SCREW_HOLE_INSET }
+        { x: -width/2 + screwHoleInset, y: -height/2 + screwHoleInset },
+        { x: width/2 - screwHoleInset, y: -height/2 + screwHoleInset },
+        { x: -width/2 + screwHoleInset, y: height/2 - screwHoleInset },
+        { x: width/2 - screwHoleInset, y: height/2 - screwHoleInset }
       ];
 
       mountingHolePositions.forEach(pos => {
         const screwHole = new THREE.Path();
-        const radius = SCREW_HOLE_DIAMETER / 2;
+        const radius = screwHoleDiameter / 2;
         screwHole.absarc(pos.x, pos.y, radius, 0, Math.PI * 2, false);
         shape.holes.push(screwHole);
       });
@@ -425,8 +425,8 @@ const SkadisGenerator = () => {
   };
 
   const generateSpacerSTL = () => {
-    const innerRadius = SCREW_HOLE_DIAMETER / 2;
-    const outerRadius = SCREW_HOLE_DIAMETER / 2 + 3;
+    const innerRadius = screwHoleDiameter / 2;
+    const outerRadius = screwHoleDiameter / 2 + 3;
     
     let stl = 'solid spacer_10mm\n';
 
@@ -606,6 +606,54 @@ const SkadisGenerator = () => {
                 </div>
               </label>
             </div>
+
+            {withMountingHoles && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Screw Hole Diameter: {screwHoleDiameter}mm
+                  </label>
+                  <input
+                    type="range"
+                    min="3"
+                    max="8"
+                    step="0.05"
+                    value={screwHoleDiameter}
+                    onChange={(e) => setScrewHoleDiameter(Number(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                    style={{
+                      background: `linear-gradient(to right, #000 0%, #000 ${((screwHoleDiameter - 3) / (8 - 3)) * 100}%, #e5e7eb ${((screwHoleDiameter - 3) / (8 - 3)) * 100}%, #e5e7eb 100%)`
+                    }}
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>3mm</span>
+                    <span>8mm</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Screw Hole Inset: {screwHoleInset}mm
+                  </label>
+                  <input
+                    type="range"
+                    min="5"
+                    max="20"
+                    step="0.05"
+                    value={screwHoleInset}
+                    onChange={(e) => setScrewHoleInset(Number(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
+                    style={{
+                      background: `linear-gradient(to right, #000 0%, #000 ${((screwHoleInset - 5) / (20 - 5)) * 100}%, #e5e7eb ${((screwHoleInset - 5) / (20 - 5)) * 100}%, #e5e7eb 100%)`
+                    }}
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>5mm</span>
+                    <span>20mm</span>
+                  </div>
+                </div>
+              </>
+            )}
 
             <button
               onClick={generateSTL}
