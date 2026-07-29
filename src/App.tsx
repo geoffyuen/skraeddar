@@ -1,68 +1,9 @@
 import { useReducer, useEffect, useRef, useDeferredValue } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-
-const STORAGE_KEY = 'skraeddar_settings';
-
-const DEFAULTS = {
-  width: 280,
-  height: 280,
-  thickness: 5,
-  withMountingHoles: true,
-  screwHoleDiameter: 5,
-  screwHoleInset: 8.75,
-  extendTop: false,
-  extendBottom: false,
-  extendLeft: false,
-  extendRight: false,
-  roundTopLeft: true,
-  roundTopRight: true,
-  roundBottomLeft: true,
-  roundBottomRight: true,
-};
-
-const addPillHole = (shape: THREE.Shape, xPos: number, yPos: number) => {
-  const hw = HOLE_WIDTH / 2;
-  const hh = HOLE_HEIGHT / 2;
-  const holePath = new THREE.Path();
-  holePath.moveTo(xPos - hw, yPos - hh + hw);
-  holePath.lineTo(xPos - hw, yPos + hh - hw);
-  holePath.quadraticCurveTo(xPos - hw, yPos + hh, xPos, yPos + hh);
-  holePath.quadraticCurveTo(xPos + hw, yPos + hh, xPos + hw, yPos + hh - hw);
-  holePath.lineTo(xPos + hw, yPos - hh + hw);
-  holePath.quadraticCurveTo(xPos + hw, yPos - hh, xPos, yPos - hh);
-  holePath.quadraticCurveTo(xPos - hw, yPos - hh, xPos - hw, yPos - hh + hw);
-  shape.holes.push(holePath);
-};
-
-const formatTriangle = (v1: THREE.Vector3, v2: THREE.Vector3, v3: THREE.Vector3): string => {
-  const normal = new THREE.Vector3()
-    .crossVectors(
-      new THREE.Vector3().subVectors(v2, v1),
-      new THREE.Vector3().subVectors(v3, v1)
-    )
-    .normalize();
-
-  let result = '';
-  result += `  facet normal ${normal.x.toFixed(6)} ${normal.y.toFixed(6)} ${normal.z.toFixed(6)}\n`;
-  result += `    outer loop\n`;
-  result += `      vertex ${v1.x.toFixed(6)} ${v1.y.toFixed(6)} ${v1.z.toFixed(6)}\n`;
-  result += `      vertex ${v2.x.toFixed(6)} ${v2.y.toFixed(6)} ${v2.z.toFixed(6)}\n`;
-  result += `      vertex ${v3.x.toFixed(6)} ${v3.y.toFixed(6)} ${v3.z.toFixed(6)}\n`;
-  result += `    endloop\n`;
-  result += `  endfacet\n`;
-
-  return result;
-};
-
-const HOLE_WIDTH = 5;
-const HOLE_HEIGHT = 15;
-const HOLE_SPACING_X = 40;
-const HOLE_SPACING_Y = 20;
-const EDGE_MARGIN = 20;
-const BOARD_RADIUS = 8;
-const COUNTERSINK_DEPTH = 10;
-const SHOW_OUTLINE = false;
+import { STORAGE_KEY, DEFAULTS, COUNTERSINK_DEPTH, SHOW_OUTLINE, BOARD_RADIUS } from './constants';
+import { buildBoardShape, formatTriangle } from './board';
+import { Slider, Checkbox, SectionBox, Logo, DownloadIcon } from './components';
 
 const loadSettings = () => {
   try {
@@ -71,146 +12,6 @@ const loadSettings = () => {
   } catch {
     return null;
   }
-};
-
-interface BoardShapeParams {
-  width: number;
-  height: number;
-  withMountingHoles: boolean;
-  screwHoleDiameter: number;
-  screwHoleInset: number;
-  extendTop: boolean;
-  extendBottom: boolean;
-  extendLeft: boolean;
-  extendRight: boolean;
-  roundTopLeft: boolean;
-  roundTopRight: boolean;
-  roundBottomLeft: boolean;
-  roundBottomRight: boolean;
-}
-
-const buildBoardShape = (params: BoardShapeParams): { shape: THREE.Shape; totalHoles: number } => {
-  const { width, height, withMountingHoles, screwHoleDiameter, screwHoleInset,
-    extendTop, extendBottom, extendLeft, extendRight,
-    roundTopLeft, roundTopRight, roundBottomLeft, roundBottomRight } = params;
-
-  const holesX = Math.floor((width - 2 * EDGE_MARGIN) / HOLE_SPACING_X) + 1;
-  const holesY = Math.floor((height - 2 * EDGE_MARGIN) / HOLE_SPACING_Y) + 1;
-  const startX = (width - (holesX - 1) * HOLE_SPACING_X) / 2;
-  const startY = (height - (holesY - 1) * HOLE_SPACING_Y) / 2;
-
-  const shape = new THREE.Shape();
-  const r = BOARD_RADIUS;
-  const hw = HOLE_WIDTH / 2;
-  const hh = HOLE_HEIGHT / 2;
-
-  if (roundBottomLeft) {
-    shape.moveTo(-width/2 + r, -height/2);
-  } else {
-    shape.moveTo(-width/2, -height/2);
-  }
-
-  if (extendBottom) {
-    for (let i = 0; i < holesX; i++) {
-      const xBoard = startX + i * HOLE_SPACING_X + HOLE_SPACING_X / 2;
-      if (xBoard < EDGE_MARGIN || xBoard > width - EDGE_MARGIN) continue;
-      const xPos = xBoard - width/2;
-      shape.lineTo(xPos - hw, -height/2);
-      shape.lineTo(xPos - hw, -height/2 + hh - hw);
-      shape.quadraticCurveTo(xPos - hw, -height/2 + hh, xPos, -height/2 + hh);
-      shape.quadraticCurveTo(xPos + hw, -height/2 + hh, xPos + hw, -height/2 + hh - hw);
-      shape.lineTo(xPos + hw, -height/2);
-    }
-  }
-  if (roundBottomRight) {
-    shape.lineTo(width/2 - r, -height/2);
-    shape.quadraticCurveTo(width/2, -height/2, width/2, -height/2 + r);
-  } else {
-    shape.lineTo(width/2, -height/2);
-  }
-
-  if (extendRight) {
-    for (let j = 1; j < holesY; j += 2) {
-      const yPos = startY + j * HOLE_SPACING_Y - height/2;
-      shape.lineTo(width/2, yPos - hh);
-      shape.quadraticCurveTo(width/2 - hw, yPos - hh, width/2 - hw, yPos - hh + hw);
-      shape.lineTo(width/2 - hw, yPos + hh - hw);
-      shape.quadraticCurveTo(width/2 - hw, yPos + hh, width/2, yPos + hh);
-    }
-  }
-  if (roundTopRight) {
-    shape.lineTo(width/2, height/2 - r);
-    shape.quadraticCurveTo(width/2, height/2, width/2 - r, height/2);
-  } else {
-    shape.lineTo(width/2, height/2);
-  }
-
-  if (extendTop) {
-    for (let i = holesX - 1; i >= 0; i--) {
-      const xBoard = startX + i * HOLE_SPACING_X + HOLE_SPACING_X / 2;
-      if (xBoard < EDGE_MARGIN || xBoard > width - EDGE_MARGIN) continue;
-      const xPos = xBoard - width/2;
-      shape.lineTo(xPos + hw, height/2);
-      shape.lineTo(xPos + hw, height/2 - hh + hw);
-      shape.quadraticCurveTo(xPos + hw, height/2 - hh, xPos, height/2 - hh);
-      shape.quadraticCurveTo(xPos - hw, height/2 - hh, xPos - hw, height/2 - hh + hw);
-      shape.lineTo(xPos - hw, height/2);
-    }
-  }
-  if (roundTopLeft) {
-    shape.lineTo(-width/2 + r, height/2);
-    shape.quadraticCurveTo(-width/2, height/2, -width/2, height/2 - r);
-  } else {
-    shape.lineTo(-width/2, height/2);
-  }
-
-  if (extendLeft) {
-    for (let j = holesY - 1 - (holesY % 2); j >= 0; j -= 2) {
-      const yPos = startY + j * HOLE_SPACING_Y - height/2;
-      shape.lineTo(-width/2, yPos + hh);
-      shape.quadraticCurveTo(-width/2 + hw, yPos + hh, -width/2 + hw, yPos + hh - hw);
-      shape.lineTo(-width/2 + hw, yPos - hh + hw);
-      shape.quadraticCurveTo(-width/2 + hw, yPos - hh, -width/2, yPos - hh);
-    }
-  }
-  if (roundBottomLeft) {
-    shape.lineTo(-width/2, -height/2 + r);
-    shape.quadraticCurveTo(-width/2, -height/2, -width/2 + r, -height/2);
-  } else {
-    shape.lineTo(-width/2, -height/2);
-  }
-
-  let totalHoles = 0;
-  for (let i = 0; i < holesX; i++) {
-    for (let j = 0; j < holesY; j++) {
-      const offsetX = (j % 2) * (HOLE_SPACING_X / 2);
-      const xPos = startX + i * HOLE_SPACING_X + offsetX - width/2;
-      const yPos = startY + j * HOLE_SPACING_Y - height/2;
-      
-      if (startX + i * HOLE_SPACING_X + offsetX < EDGE_MARGIN || 
-          startX + i * HOLE_SPACING_X + offsetX > width - EDGE_MARGIN) continue;
-      
-      totalHoles++;
-
-      addPillHole(shape, xPos, yPos);
-    }
-  }
-
-  const screwPositions = withMountingHoles ? [
-    { x: -width/2 + screwHoleInset, y: -height/2 + screwHoleInset },
-    { x: width/2 - screwHoleInset, y: -height/2 + screwHoleInset },
-    { x: -width/2 + screwHoleInset, y: height/2 - screwHoleInset },
-    { x: width/2 - screwHoleInset, y: height/2 - screwHoleInset }
-  ] : [];
-
-  screwPositions.forEach(pos => {
-    const screwHole = new THREE.Path();
-    const radius = screwHoleDiameter / 2;
-    screwHole.absarc(pos.x, pos.y, radius, 0, Math.PI * 2, false);
-    shape.holes.push(screwHole);
-  });
-
-  return { shape, totalHoles };
 };
 
 type State = {
@@ -374,7 +175,7 @@ const SkadisGenerator = () => {
     });
     const board = new THREE.Mesh(boardGeometry, boardMaterial);
     board.position.set(width / 2, height / 2, 0);
-    board.rotation.x = 0; // No rotation - spacers will be behind
+    board.rotation.x = 0;
     board.userData = { totalHoles };
     sceneRef.current.add(board);
 
@@ -387,14 +188,12 @@ const SkadisGenerator = () => {
       const br = roundBottomRight;
       const tr = roundTopRight;
       const tl = roundTopLeft;
-      // Bottom edge (left to right)
       for (let i = 0; i <= segments; i++) {
         const t = i / segments;
         const xStart = -width/2 + (bl ? outlineRadius : 0);
         const xEnd = width/2 - (br ? outlineRadius : 0);
         outlinePoints.push(new THREE.Vector3(xStart + t * (xEnd - xStart), -height/2, 0));
       }
-      // Bottom-right corner arc
       if (br) {
         for (let i = 0; i <= segments; i++) {
           const angle = -Math.PI/2 + (i / segments) * Math.PI/2;
@@ -405,14 +204,12 @@ const SkadisGenerator = () => {
           ));
         }
       }
-      // Right edge (bottom to top)
       for (let i = 0; i <= segments; i++) {
         const t = i / segments;
         const yStart = -height/2 + (br ? outlineRadius : 0);
         const yEnd = height/2 - (tr ? outlineRadius : 0);
         outlinePoints.push(new THREE.Vector3(width/2, yStart + t * (yEnd - yStart), 0));
       }
-      // Top-right corner arc
       if (tr) {
         for (let i = 0; i <= segments; i++) {
           const angle = (i / segments) * Math.PI/2;
@@ -423,14 +220,12 @@ const SkadisGenerator = () => {
           ));
         }
       }
-      // Top edge (right to left)
       for (let i = 0; i <= segments; i++) {
         const t = i / segments;
         const xStart = width/2 - (tr ? outlineRadius : 0);
         const xEnd = -width/2 + (tl ? outlineRadius : 0);
         outlinePoints.push(new THREE.Vector3(xStart - t * (xStart - xEnd), height/2, 0));
       }
-      // Top-left corner arc
       if (tl) {
         for (let i = 0; i <= segments; i++) {
           const angle = Math.PI/2 + (i / segments) * Math.PI/2;
@@ -441,14 +236,12 @@ const SkadisGenerator = () => {
           ));
         }
       }
-      // Left edge (top to bottom)
       for (let i = 0; i <= segments; i++) {
         const t = i / segments;
         const yStart = height/2 - (tl ? outlineRadius : 0);
         const yEnd = -height/2 + (bl ? outlineRadius : 0);
         outlinePoints.push(new THREE.Vector3(-width/2, yStart - t * (yStart - yEnd), 0));
       }
-      // Bottom-left corner arc
       if (bl) {
         for (let i = 0; i <= segments; i++) {
           const angle = Math.PI + (i / segments) * Math.PI/2;
@@ -476,20 +269,6 @@ const SkadisGenerator = () => {
   }, [deferredWidth, deferredHeight, deferredThickness, withMountingHoles, deferredScrewHoleDiameter, deferredScrewHoleInset,
       extendTop, extendBottom, extendLeft, extendRight,
       roundTopLeft, roundTopRight, roundBottomLeft, roundBottomRight]);
-
-  const Logo = () => (
-    <svg className="w-8 h-8 md:w-10 md:h-10" viewBox="0 0 1000 1000" xmlns="http://www.w3.org/2000/svg">
-      <path fill="#000000" d="M392.438232,73.929527 C334.905548,93.546967 286.036163,126.159508 246.429581,172.262344 C206.917343,218.255417 182.346451,271.288300 172.786514,331.283081 C168.351852,359.113495 168.731567,387.052765 169.776123,415.036591 C169.844788,416.876617 171.137177,419.092743 172.542816,420.400421 C238.180176,481.463989 303.889435,542.450317 369.626587,603.406494 C370.929260,604.614502 372.661163,605.359680 374.277649,606.373962 C307.950836,674.987122 242.808014,742.375427 177.545914,809.887085 C201.769104,833.315979 225.534866,856.302490 249.414154,879.398804 C338.609680,787.136658 427.395538,695.298279 516.320862,603.315674 C514.781616,601.858154 513.591064,600.711182 512.379761,599.586548 C432.513092,525.440063 352.653107,451.286377 272.737183,377.192963 C270.267731,374.903442 268.855957,372.768372 269.104279,369.148895 C270.558716,347.950836 273.752167,327.022552 281.606842,307.248505 C317.356354,217.249481 384.353333,167.247208 479.933746,157.249390 C547.889343,150.141159 608.473389,170.658203 659.339478,216.489380 C706.815613,259.266144 732.323669,313.197113 732.775269,377.378265 C733.508057,481.526398 732.988586,585.683350 733.008301,689.836548 C733.008545,691.264343 733.145081,692.692200 733.209656,693.957397 C766.637146,693.957397 799.586670,693.957397 832.969727,693.957397 C832.969727,691.950134 832.970093,690.161438 832.969604,688.372681 C832.944397,586.884888 832.740723,485.396698 832.974976,383.909546 C833.080261,338.323608 824.710999,294.599365 806.351379,252.886627 C737.474060,96.398132 557.358276,18.474409 392.438232,73.929527 M833.000000,829.500000 C833.000000,815.915710 833.000000,802.331360 833.000000,788.378418 C710.282898,788.378418 588.244751,788.378418 466.294617,788.378418 C466.294617,821.658081 466.294617,854.728088 466.294617,887.713501 C588.653015,887.713501 710.716553,887.713501 833.000000,887.713501 C833.000000,868.451904 833.000000,849.475952 833.000000,829.500000 z"/>
-    </svg>
-  );
-
-  const DownloadIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-      <polyline points="7 10 12 15 17 10"></polyline>
-      <line x1="12" y1="15" x2="12" y2="3"></line>
-    </svg>
-  );
 
   const generateSTL = () => {
     let stl = 'solid skadis_pegboard\n';
@@ -611,7 +390,7 @@ const SkadisGenerator = () => {
 
   return (
     <div className="w-full h-screen flex flex-col bg-gray-50">
-      <div className="bg-white shadow-sm border-b border-gray-200 p-3 md:p-4">
+      <header className="bg-white shadow-sm border-b border-gray-200 p-3 md:p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 md:gap-3">
             <Logo />
@@ -621,83 +400,22 @@ const SkadisGenerator = () => {
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       <div className="flex flex-1 overflow-hidden flex-col md:flex-row min-h-0">
-        <div className="w-full md:w-80 md:flex-shrink-0 bg-white border-b md:border-r md:border-b-0 border-gray-200 p-4 md:p-6 overflow-y-auto max-h-[40vh] md:max-h-none">
+        <aside className="w-full md:w-80 md:flex-shrink-0 bg-white border-b md:border-r md:border-b-0 border-gray-200 p-4 md:p-6 overflow-y-auto max-h-[40vh] md:max-h-none">
           <h2 className="text-base md:text-lg font-semibold mb-4 text-gray-900">Settings</h2>
           
           <div className="space-y-4 md:space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Width: {width}mm
-              </label>
-              <input
-                type="range"
-                min="80"
-                max="800"
-                step="40"
-                value={width}
-                onChange={(e) => dispatch({ width: Number(e.target.value) })}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
-                style={{
-                  background: `linear-gradient(to right, #000 0%, #000 ${((width - 80) / (800 - 80)) * 100}%, #e5e7eb ${((width - 80) / (800 - 80)) * 100}%, #e5e7eb 100%)`
-                }}
-              />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>80mm</span>
-                <span>800mm</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Height: {height}mm
-              </label>
-              <input
-                type="range"
-                min="80"
-                max="800"
-                step="40"
-                value={height}
-                onChange={(e) => dispatch({ height: Number(e.target.value) })}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
-                style={{
-                  background: `linear-gradient(to right, #000 0%, #000 ${((height - 80) / (800 - 80)) * 100}%, #e5e7eb ${((height - 80) / (800 - 80)) * 100}%, #e5e7eb 100%)`
-                }}
-              />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>80mm</span>
-                <span>800mm</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Thickness: {thickness}mm
-              </label>
-              <input
-                type="range"
-                min="2"
-                max="8"
-                step="0.5"
-                value={thickness}
-                onChange={(e) => dispatch({ thickness: Number(e.target.value) })}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
-                style={{
-                  background: `linear-gradient(to right, #000 0%, #000 ${((thickness - 2) / (8 - 2)) * 100}%, #e5e7eb ${((thickness - 2) / (8 - 2)) * 100}%, #e5e7eb 100%)`
-                }}
-              />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>2mm</span>
-                <span>8mm</span>
-              </div>
+            <Slider label="Width" name="width" value={width} min={80} max={800} step={40} suffix="mm" onChange={(e) => dispatch({ width: Number(e.target.value) })} />
+            <Slider label="Height" name="height" value={height} min={80} max={800} step={40} suffix="mm" onChange={(e) => dispatch({ height: Number(e.target.value) })} />
+            <Slider label="Thickness" name="thickness" value={thickness} min={2} max={8} step={0.5} suffix="mm" onChange={(e) => dispatch({ thickness: Number(e.target.value) })}>
               {thickness !== 5 && (
                 <p className="mt-2 text-xs text-gray-500 italic">
                   ⚠️ Recommended: 5mm (standard thickness). Deviation may affect hook compatibility.
                 </p>
               )}
-            </div>
+            </Slider>
 
             <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
               <label className="flex items-start gap-3 cursor-pointer">
@@ -715,47 +433,10 @@ const SkadisGenerator = () => {
               {withMountingHoles && (
                 <>
                   <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Screw Hole Diameter: {screwHoleDiameter}mm
-                    </label>
-                    <input
-                      type="range"
-                      min="3"
-                      max="8"
-                      step="0.05"
-                      value={screwHoleDiameter}
-                      onChange={(e) => dispatch({ screwHoleDiameter: Number(e.target.value) })}
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
-                      style={{
-                        background: `linear-gradient(to right, #000 0%, #000 ${((screwHoleDiameter - 3) / (8 - 3)) * 100}%, #e5e7eb ${((screwHoleDiameter - 3) / (8 - 3)) * 100}%, #e5e7eb 100%)`
-                      }}
-                    />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>3mm</span>
-                      <span>8mm</span>
-                    </div>
+                    <Slider label="Screw Hole Diameter" name="screwHoleDiameter" value={screwHoleDiameter} min={3} max={8} step={0.05} suffix="mm" onChange={(e) => dispatch({ screwHoleDiameter: Number(e.target.value) })} />
                   </div>
-
                   <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Screw Hole Inset: {screwHoleInset}mm
-                    </label>
-                    <input
-                      type="range"
-                      min="5"
-                      max="20"
-                      step="0.05"
-                      value={screwHoleInset}
-                      onChange={(e) => dispatch({ screwHoleInset: Number(e.target.value) })}
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
-                      style={{
-                        background: `linear-gradient(to right, #000 0%, #000 ${((screwHoleInset - 5) / (20 - 5)) * 100}%, #e5e7eb ${((screwHoleInset - 5) / (20 - 5)) * 100}%, #e5e7eb 100%)`
-                      }}
-                    />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>5mm</span>
-                      <span>20mm</span>
-                    </div>
+                    <Slider label="Screw Hole Inset" name="screwHoleInset" value={screwHoleInset} min={5} max={20} step={0.05} suffix="mm" onChange={(e) => dispatch({ screwHoleInset: Number(e.target.value) })} />
                   </div>
                 </>
               )}
@@ -763,95 +444,25 @@ const SkadisGenerator = () => {
             </div>
 
 
-            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-              <div className="mb-3">
-                <span className="text-sm font-medium text-gray-900">Edge Holes</span>
-              </div>
+            <SectionBox title="Edge Holes">
               <div className="space-y-2">
-                <label className="flex items-center justify-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={extendTop}
-                    onChange={(e) => dispatch({ extendTop: e.target.checked })}
-                    className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
-                  />
-                  <span className="text-sm text-gray-700">Top</span>
-                </label>
+                <Checkbox label="Top" checked={extendTop} onChange={(e) => dispatch({ extendTop: e.target.checked })} centered />
                 <div className="flex gap-4 justify-between">
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={extendLeft}
-                      onChange={(e) => dispatch({ extendLeft: e.target.checked })}
-                      className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
-                    />
-                    <span className="text-sm text-gray-700">Left</span>
-                  </label>
-                  <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={extendRight}
-                      onChange={(e) => dispatch({ extendRight: e.target.checked })}
-                      className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
-                    />
-                    <span className="text-sm text-gray-700">Right</span>
-                  </label>
+                  <Checkbox label="Left" checked={extendLeft} onChange={(e) => dispatch({ extendLeft: e.target.checked })} />
+                  <Checkbox label="Right" checked={extendRight} onChange={(e) => dispatch({ extendRight: e.target.checked })} />
                 </div>
-                <label className="flex items-center justify-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={extendBottom}
-                    onChange={(e) => dispatch({ extendBottom: e.target.checked })}
-                    className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
-                  />
-                  <span className="text-sm text-gray-700">Bottom</span>
-                </label>
+                <Checkbox label="Bottom" checked={extendBottom} onChange={(e) => dispatch({ extendBottom: e.target.checked })} centered />
               </div>
-            </div>
+            </SectionBox>
 
-            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-              <div className="mb-3">
-                <span className="text-sm font-medium text-gray-900">Rounded Corners</span>
-              </div>
+            <SectionBox title="Rounded Corners">
               <div className="grid grid-cols-2 gap-2">
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={roundTopLeft}
-                    onChange={(e) => dispatch({ roundTopLeft: e.target.checked })}
-                    className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
-                  />
-                  <span className="text-sm text-gray-700">Top-left</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={roundTopRight}
-                    onChange={(e) => dispatch({ roundTopRight: e.target.checked })}
-                    className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
-                  />
-                  <span className="text-sm text-gray-700">Top-right</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={roundBottomLeft}
-                    onChange={(e) => dispatch({ roundBottomLeft: e.target.checked })}
-                    className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
-                  />
-                  <span className="text-sm text-gray-700">Bottom-left</span>
-                </label>
-                <label className="flex items-center gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={roundBottomRight}
-                    onChange={(e) => dispatch({ roundBottomRight: e.target.checked })}
-                    className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
-                  />
-                  <span className="text-sm text-gray-700">Bottom-right</span>
-                </label>
+                <Checkbox label="Top-left" checked={roundTopLeft} onChange={(e) => dispatch({ roundTopLeft: e.target.checked })} />
+                <Checkbox label="Top-right" checked={roundTopRight} onChange={(e) => dispatch({ roundTopRight: e.target.checked })} />
+                <Checkbox label="Bottom-left" checked={roundBottomLeft} onChange={(e) => dispatch({ roundBottomLeft: e.target.checked })} />
+                <Checkbox label="Bottom-right" checked={roundBottomRight} onChange={(e) => dispatch({ roundBottomRight: e.target.checked })} />
               </div>
-            </div>
+            </SectionBox>
 
             <button
               onClick={() => {
@@ -883,9 +494,9 @@ const SkadisGenerator = () => {
             </p>
 
           </div>
-        </div>
+        </aside>
 
-        <div className="flex-1 relative min-h-[300px] md:min-h-0">
+        <main className="flex-1 relative min-h-[300px] md:min-h-0">
           <div ref={mountRef} className="w-full h-full min-h-[300px]" />
           <button
             onClick={resetView}
@@ -893,7 +504,7 @@ const SkadisGenerator = () => {
           >
             Reset view
           </button>
-        </div>
+        </main>
       </div>
     </div>
   );
