@@ -17,18 +17,33 @@ export interface BoardShapeParams {
   roundBottomRight: boolean;
 }
 
-const addPillHole = (shape: THREE.Shape, xPos: number, yPos: number) => {
+const pillHoleTemplate = (() => {
   const hw = HOLE_WIDTH / 2;
   const hh = HOLE_HEIGHT / 2;
-  const holePath = new THREE.Path();
-  holePath.moveTo(xPos - hw, yPos - hh + hw);
-  holePath.lineTo(xPos - hw, yPos + hh - hw);
-  holePath.quadraticCurveTo(xPos - hw, yPos + hh, xPos, yPos + hh);
-  holePath.quadraticCurveTo(xPos + hw, yPos + hh, xPos + hw, yPos + hh - hw);
-  holePath.lineTo(xPos + hw, yPos - hh + hw);
-  holePath.quadraticCurveTo(xPos + hw, yPos - hh, xPos, yPos - hh);
-  holePath.quadraticCurveTo(xPos - hw, yPos - hh, xPos - hw, yPos - hh + hw);
-  shape.holes.push(holePath);
+  const p = new THREE.Path();
+  p.moveTo(-hw, -hh + hw);
+  p.lineTo(-hw, hh - hw);
+  p.quadraticCurveTo(-hw, hh, 0, hh);
+  p.quadraticCurveTo(hw, hh, hw, hh - hw);
+  p.lineTo(hw, -hh + hw);
+  p.quadraticCurveTo(hw, -hh, 0, -hh);
+  p.quadraticCurveTo(-hw, -hh, -hw, -hh + hw);
+  return p;
+})();
+
+const offsetPath = (path: THREE.Path, dx: number, dy: number) => {
+  for (const c of path.curves) {
+    if (c instanceof THREE.LineCurve) {
+      c.v1.x += dx; c.v1.y += dy;
+      c.v2.x += dx; c.v2.y += dy;
+    } else if (c instanceof THREE.QuadraticBezierCurve) {
+      c.v0.x += dx; c.v0.y += dy;
+      c.v1.x += dx; c.v1.y += dy;
+      c.v2.x += dx; c.v2.y += dy;
+    }
+  }
+  path.currentPoint.x += dx;
+  path.currentPoint.y += dy;
 };
 
 const writeTriangle = (
@@ -159,7 +174,9 @@ export const buildBoardShape = (params: BoardShapeParams): { shape: THREE.Shape;
       
       totalHoles++;
 
-      addPillHole(shape, xPos, yPos);
+      const hole = pillHoleTemplate.clone();
+      offsetPath(hole, xPos, yPos);
+      shape.holes.push(hole);
     }
   }
 
