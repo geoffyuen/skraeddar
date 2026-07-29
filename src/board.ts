@@ -72,7 +72,13 @@ const writeTriangle = (view: DataView, offset: number): number => {
   return offset + 2;
 };
 
+let _prevKey = '';
+let _prevResult: { shape: THREE.Shape; totalHoles: number } | null = null;
+
 export const buildBoardShape = (params: BoardShapeParams): { shape: THREE.Shape; totalHoles: number } => {
+  const key = `${params.width}|${params.height}|${params.withMountingHoles}|${params.screwHoleDiameter}|${params.screwHoleInset}|${params.extendTop}|${params.extendBottom}|${params.extendLeft}|${params.extendRight}|${params.roundTopLeft}|${params.roundTopRight}|${params.roundBottomLeft}|${params.roundBottomRight}`;
+  if (_prevKey === key && _prevResult) return _prevResult;
+
   const { width, height, withMountingHoles, screwHoleDiameter, screwHoleInset,
     extendTop, extendBottom, extendLeft, extendRight,
     roundTopLeft, roundTopRight, roundBottomLeft, roundBottomRight } = params;
@@ -195,7 +201,9 @@ export const buildBoardShape = (params: BoardShapeParams): { shape: THREE.Shape;
     shape.holes.push(screwHole);
   });
 
-  return { shape, totalHoles };
+  _prevKey = key;
+  _prevResult = { shape, totalHoles };
+  return _prevResult;
 };
 
 export const generateBinarySTLBlob = (
