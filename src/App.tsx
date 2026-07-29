@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useDeferredValue } from 'react';
+import { useReducer, useEffect, useRef, useDeferredValue } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
@@ -213,43 +213,50 @@ const buildBoardShape = (params: BoardShapeParams): { shape: THREE.Shape; totalH
   return { shape, totalHoles };
 };
 
+type State = {
+  width: number;
+  height: number;
+  thickness: number;
+  withMountingHoles: boolean;
+  screwHoleDiameter: number;
+  screwHoleInset: number;
+  extendTop: boolean;
+  extendBottom: boolean;
+  extendLeft: boolean;
+  extendRight: boolean;
+  roundTopLeft: boolean;
+  roundTopRight: boolean;
+  roundBottomLeft: boolean;
+  roundBottomRight: boolean;
+};
+
+const reducer = (state: State, action: Partial<State>): State => ({
+  ...state,
+  ...action,
+});
+
 const SkadisGenerator = () => {
   const saved = loadSettings();
-  const [width, setWidth] = useState(saved?.width ?? DEFAULTS.width);
-  const [height, setHeight] = useState(saved?.height ?? DEFAULTS.height);
-  const [thickness, setThickness] = useState(saved?.thickness ?? DEFAULTS.thickness);
-  const [withMountingHoles, setWithMountingHoles] = useState(saved?.withMountingHoles ?? DEFAULTS.withMountingHoles);
-  const [screwHoleDiameter, setScrewHoleDiameter] = useState(saved?.screwHoleDiameter ?? DEFAULTS.screwHoleDiameter);
-  const [screwHoleInset, setScrewHoleInset] = useState(saved?.screwHoleInset ?? DEFAULTS.screwHoleInset);
-  const [extendTop, setExtendTop] = useState(saved?.extendTop ?? DEFAULTS.extendTop);
-  const [extendBottom, setExtendBottom] = useState(saved?.extendBottom ?? DEFAULTS.extendBottom);
-  const [extendLeft, setExtendLeft] = useState(saved?.extendLeft ?? DEFAULTS.extendLeft);
-  const [extendRight, setExtendRight] = useState(saved?.extendRight ?? DEFAULTS.extendRight);
-  const [roundTopLeft, setRoundTopLeft] = useState(saved?.roundTopLeft ?? DEFAULTS.roundTopLeft);
-  const [roundTopRight, setRoundTopRight] = useState(saved?.roundTopRight ?? DEFAULTS.roundTopRight);
-  const [roundBottomLeft, setRoundBottomLeft] = useState(saved?.roundBottomLeft ?? DEFAULTS.roundBottomLeft);
-  const [roundBottomRight, setRoundBottomRight] = useState(saved?.roundBottomRight ?? DEFAULTS.roundBottomRight);
+  const [state, dispatch] = useReducer(reducer, saved ? { ...DEFAULTS, ...saved } : { ...DEFAULTS });
+  const { width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset,
+    extendTop, extendBottom, extendLeft, extendRight,
+    roundTopLeft, roundTopRight, roundBottomLeft, roundBottomRight } = state;
   const mountRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
+  const geometryRef = useRef<THREE.ExtrudeGeometry | null>(null);
 
-  const deferredWidth = useDeferredValue(width);
-  const deferredHeight = useDeferredValue(height);
-  const deferredThickness = useDeferredValue(thickness);
-  const deferredScrewHoleDiameter = useDeferredValue(screwHoleDiameter);
-  const deferredScrewHoleInset = useDeferredValue(screwHoleInset);
+  const deferredWidth = useDeferredValue(state.width);
+  const deferredHeight = useDeferredValue(state.height);
+  const deferredThickness = useDeferredValue(state.thickness);
+  const deferredScrewHoleDiameter = useDeferredValue(state.screwHoleDiameter);
+  const deferredScrewHoleInset = useDeferredValue(state.screwHoleInset);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset,
-      extendTop, extendBottom, extendLeft, extendRight,
-      roundTopLeft, roundTopRight, roundBottomLeft, roundBottomRight
-    }));
-  }, [width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset,
-      extendTop, extendBottom, extendLeft, extendRight,
-      roundTopLeft, roundTopRight, roundBottomLeft, roundBottomRight]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [state]);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -358,6 +365,7 @@ const SkadisGenerator = () => {
     };
 
     const boardGeometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    geometryRef.current = boardGeometry;
     const boardMaterial = new THREE.MeshStandardMaterial({ 
       color: 0x595959,
       roughness: 0.5,
@@ -373,92 +381,92 @@ const SkadisGenerator = () => {
     if (SHOW_OUTLINE) {
       const outlinePoints = [];
       const outlineRadius = BOARD_RADIUS;
-    const segments = 16;
+      const segments = 16;
 
-    const bl = roundBottomLeft;
-    const br = roundBottomRight;
-    const tr = roundTopRight;
-    const tl = roundTopLeft;
-    // Bottom edge (left to right)
-    for (let i = 0; i <= segments; i++) {
-      const t = i / segments;
-      const xStart = -width/2 + (bl ? outlineRadius : 0);
-      const xEnd = width/2 - (br ? outlineRadius : 0);
-      outlinePoints.push(new THREE.Vector3(xStart + t * (xEnd - xStart), -height/2, 0));
-    }
-    // Bottom-right corner arc
-    if (br) {
+      const bl = roundBottomLeft;
+      const br = roundBottomRight;
+      const tr = roundTopRight;
+      const tl = roundTopLeft;
+      // Bottom edge (left to right)
       for (let i = 0; i <= segments; i++) {
-        const angle = -Math.PI/2 + (i / segments) * Math.PI/2;
-        outlinePoints.push(new THREE.Vector3(
-          width/2 - outlineRadius + Math.cos(angle) * outlineRadius,
-          -height/2 + outlineRadius + Math.sin(angle) * outlineRadius,
-          0
-        ));
+        const t = i / segments;
+        const xStart = -width/2 + (bl ? outlineRadius : 0);
+        const xEnd = width/2 - (br ? outlineRadius : 0);
+        outlinePoints.push(new THREE.Vector3(xStart + t * (xEnd - xStart), -height/2, 0));
       }
-    }
-    // Right edge (bottom to top)
-    for (let i = 0; i <= segments; i++) {
-      const t = i / segments;
-      const yStart = -height/2 + (br ? outlineRadius : 0);
-      const yEnd = height/2 - (tr ? outlineRadius : 0);
-      outlinePoints.push(new THREE.Vector3(width/2, yStart + t * (yEnd - yStart), 0));
-    }
-    // Top-right corner arc
-    if (tr) {
+      // Bottom-right corner arc
+      if (br) {
+        for (let i = 0; i <= segments; i++) {
+          const angle = -Math.PI/2 + (i / segments) * Math.PI/2;
+          outlinePoints.push(new THREE.Vector3(
+            width/2 - outlineRadius + Math.cos(angle) * outlineRadius,
+            -height/2 + outlineRadius + Math.sin(angle) * outlineRadius,
+            0
+          ));
+        }
+      }
+      // Right edge (bottom to top)
       for (let i = 0; i <= segments; i++) {
-        const angle = (i / segments) * Math.PI/2;
-        outlinePoints.push(new THREE.Vector3(
-          width/2 - outlineRadius + Math.cos(angle) * outlineRadius,
-          height/2 - outlineRadius + Math.sin(angle) * outlineRadius,
-          0
-        ));
+        const t = i / segments;
+        const yStart = -height/2 + (br ? outlineRadius : 0);
+        const yEnd = height/2 - (tr ? outlineRadius : 0);
+        outlinePoints.push(new THREE.Vector3(width/2, yStart + t * (yEnd - yStart), 0));
       }
-    }
-    // Top edge (right to left)
-    for (let i = 0; i <= segments; i++) {
-      const t = i / segments;
-      const xStart = width/2 - (tr ? outlineRadius : 0);
-      const xEnd = -width/2 + (tl ? outlineRadius : 0);
-      outlinePoints.push(new THREE.Vector3(xStart - t * (xStart - xEnd), height/2, 0));
-    }
-    // Top-left corner arc
-    if (tl) {
+      // Top-right corner arc
+      if (tr) {
+        for (let i = 0; i <= segments; i++) {
+          const angle = (i / segments) * Math.PI/2;
+          outlinePoints.push(new THREE.Vector3(
+            width/2 - outlineRadius + Math.cos(angle) * outlineRadius,
+            height/2 - outlineRadius + Math.sin(angle) * outlineRadius,
+            0
+          ));
+        }
+      }
+      // Top edge (right to left)
       for (let i = 0; i <= segments; i++) {
-        const angle = Math.PI/2 + (i / segments) * Math.PI/2;
-        outlinePoints.push(new THREE.Vector3(
-          -width/2 + outlineRadius + Math.cos(angle) * outlineRadius,
-          height/2 - outlineRadius + Math.sin(angle) * outlineRadius,
-          0
-        ));
+        const t = i / segments;
+        const xStart = width/2 - (tr ? outlineRadius : 0);
+        const xEnd = -width/2 + (tl ? outlineRadius : 0);
+        outlinePoints.push(new THREE.Vector3(xStart - t * (xStart - xEnd), height/2, 0));
       }
-    }
-    // Left edge (top to bottom)
-    for (let i = 0; i <= segments; i++) {
-      const t = i / segments;
-      const yStart = height/2 - (tl ? outlineRadius : 0);
-      const yEnd = -height/2 + (bl ? outlineRadius : 0);
-      outlinePoints.push(new THREE.Vector3(-width/2, yStart - t * (yStart - yEnd), 0));
-    }
-    // Bottom-left corner arc
-    if (bl) {
+      // Top-left corner arc
+      if (tl) {
+        for (let i = 0; i <= segments; i++) {
+          const angle = Math.PI/2 + (i / segments) * Math.PI/2;
+          outlinePoints.push(new THREE.Vector3(
+            -width/2 + outlineRadius + Math.cos(angle) * outlineRadius,
+            height/2 - outlineRadius + Math.sin(angle) * outlineRadius,
+            0
+          ));
+        }
+      }
+      // Left edge (top to bottom)
       for (let i = 0; i <= segments; i++) {
-        const angle = Math.PI + (i / segments) * Math.PI/2;
-        outlinePoints.push(new THREE.Vector3(
-          -width/2 + outlineRadius + Math.cos(angle) * outlineRadius,
-          -height/2 + outlineRadius + Math.sin(angle) * outlineRadius,
-          0
-        ));
+        const t = i / segments;
+        const yStart = height/2 - (tl ? outlineRadius : 0);
+        const yEnd = -height/2 + (bl ? outlineRadius : 0);
+        outlinePoints.push(new THREE.Vector3(-width/2, yStart - t * (yStart - yEnd), 0));
       }
-    }
+      // Bottom-left corner arc
+      if (bl) {
+        for (let i = 0; i <= segments; i++) {
+          const angle = Math.PI + (i / segments) * Math.PI/2;
+          outlinePoints.push(new THREE.Vector3(
+            -width/2 + outlineRadius + Math.cos(angle) * outlineRadius,
+            -height/2 + outlineRadius + Math.sin(angle) * outlineRadius,
+            0
+          ));
+        }
+      }
 
-    outlinePoints.push(outlinePoints[0].clone());
+      outlinePoints.push(outlinePoints[0].clone());
 
-    const outlineGeometry = new THREE.BufferGeometry().setFromPoints(outlinePoints);
-    const outlineMaterial = new THREE.LineBasicMaterial({ color: 0x333333, linewidth: 2 });
-    const outline = new THREE.Line(outlineGeometry, outlineMaterial);
-    outline.position.set(width / 2, height / 2, -thickness);
-    sceneRef.current.add(outline);
+      const outlineGeometry = new THREE.BufferGeometry().setFromPoints(outlinePoints);
+      const outlineMaterial = new THREE.LineBasicMaterial({ color: 0x333333, linewidth: 2 });
+      const outline = new THREE.Line(outlineGeometry, outlineMaterial);
+      outline.position.set(width / 2, height / 2, -thickness);
+      sceneRef.current.add(outline);
     }
 
     if (controlsRef.current) {
@@ -486,19 +494,8 @@ const SkadisGenerator = () => {
   const generateSTL = () => {
     let stl = 'solid skadis_pegboard\n';
 
-    const { shape } = buildBoardShape({
-      width, height, withMountingHoles, screwHoleDiameter, screwHoleInset,
-      extendTop, extendBottom, extendLeft, extendRight,
-      roundTopLeft, roundTopRight, roundBottomLeft, roundBottomRight
-    });
-
-    const extrudeSettings = {
-      steps: 1,
-      depth: thickness,
-      bevelEnabled: false
-    };
-
-    const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+    const geometry = geometryRef.current;
+    if (!geometry) return;
     
     const positions = geometry.attributes.position.array;
     const indices = geometry.index ? geometry.index.array : null;
@@ -641,7 +638,7 @@ const SkadisGenerator = () => {
                 max="800"
                 step="40"
                 value={width}
-                onChange={(e) => setWidth(Number(e.target.value))}
+                onChange={(e) => dispatch({ width: Number(e.target.value) })}
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
                 style={{
                   background: `linear-gradient(to right, #000 0%, #000 ${((width - 80) / (800 - 80)) * 100}%, #e5e7eb ${((width - 80) / (800 - 80)) * 100}%, #e5e7eb 100%)`
@@ -663,7 +660,7 @@ const SkadisGenerator = () => {
                 max="800"
                 step="40"
                 value={height}
-                onChange={(e) => setHeight(Number(e.target.value))}
+                onChange={(e) => dispatch({ height: Number(e.target.value) })}
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
                 style={{
                   background: `linear-gradient(to right, #000 0%, #000 ${((height - 80) / (800 - 80)) * 100}%, #e5e7eb ${((height - 80) / (800 - 80)) * 100}%, #e5e7eb 100%)`
@@ -685,7 +682,7 @@ const SkadisGenerator = () => {
                 max="8"
                 step="0.5"
                 value={thickness}
-                onChange={(e) => setThickness(Number(e.target.value))}
+                onChange={(e) => dispatch({ thickness: Number(e.target.value) })}
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
                 style={{
                   background: `linear-gradient(to right, #000 0%, #000 ${((thickness - 2) / (8 - 2)) * 100}%, #e5e7eb ${((thickness - 2) / (8 - 2)) * 100}%, #e5e7eb 100%)`
@@ -707,7 +704,7 @@ const SkadisGenerator = () => {
                 <input
                   type="checkbox"
                   checked={withMountingHoles}
-                  onChange={(e) => setWithMountingHoles(e.target.checked)}
+                  onChange={(e) => dispatch({ withMountingHoles: e.target.checked })}
                   className="mt-0.5 w-5 h-5 accent-black cursor-pointer flex-shrink-0"
                 />
                 <div>
@@ -727,7 +724,7 @@ const SkadisGenerator = () => {
                       max="8"
                       step="0.05"
                       value={screwHoleDiameter}
-                      onChange={(e) => setScrewHoleDiameter(Number(e.target.value))}
+                      onChange={(e) => dispatch({ screwHoleDiameter: Number(e.target.value) })}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
                       style={{
                         background: `linear-gradient(to right, #000 0%, #000 ${((screwHoleDiameter - 3) / (8 - 3)) * 100}%, #e5e7eb ${((screwHoleDiameter - 3) / (8 - 3)) * 100}%, #e5e7eb 100%)`
@@ -749,7 +746,7 @@ const SkadisGenerator = () => {
                       max="20"
                       step="0.05"
                       value={screwHoleInset}
-                      onChange={(e) => setScrewHoleInset(Number(e.target.value))}
+                      onChange={(e) => dispatch({ screwHoleInset: Number(e.target.value) })}
                       className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-black"
                       style={{
                         background: `linear-gradient(to right, #000 0%, #000 ${((screwHoleInset - 5) / (20 - 5)) * 100}%, #e5e7eb ${((screwHoleInset - 5) / (20 - 5)) * 100}%, #e5e7eb 100%)`
@@ -775,7 +772,7 @@ const SkadisGenerator = () => {
                   <input
                     type="checkbox"
                     checked={extendTop}
-                    onChange={(e) => setExtendTop(e.target.checked)}
+                    onChange={(e) => dispatch({ extendTop: e.target.checked })}
                     className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
                   />
                   <span className="text-sm text-gray-700">Top</span>
@@ -785,7 +782,7 @@ const SkadisGenerator = () => {
                     <input
                       type="checkbox"
                       checked={extendLeft}
-                      onChange={(e) => setExtendLeft(e.target.checked)}
+                      onChange={(e) => dispatch({ extendLeft: e.target.checked })}
                       className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
                     />
                     <span className="text-sm text-gray-700">Left</span>
@@ -794,7 +791,7 @@ const SkadisGenerator = () => {
                     <input
                       type="checkbox"
                       checked={extendRight}
-                      onChange={(e) => setExtendRight(e.target.checked)}
+                      onChange={(e) => dispatch({ extendRight: e.target.checked })}
                       className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
                     />
                     <span className="text-sm text-gray-700">Right</span>
@@ -804,7 +801,7 @@ const SkadisGenerator = () => {
                   <input
                     type="checkbox"
                     checked={extendBottom}
-                    onChange={(e) => setExtendBottom(e.target.checked)}
+                    onChange={(e) => dispatch({ extendBottom: e.target.checked })}
                     className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
                   />
                   <span className="text-sm text-gray-700">Bottom</span>
@@ -821,7 +818,7 @@ const SkadisGenerator = () => {
                   <input
                     type="checkbox"
                     checked={roundTopLeft}
-                    onChange={(e) => setRoundTopLeft(e.target.checked)}
+                    onChange={(e) => dispatch({ roundTopLeft: e.target.checked })}
                     className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
                   />
                   <span className="text-sm text-gray-700">Top-left</span>
@@ -830,7 +827,7 @@ const SkadisGenerator = () => {
                   <input
                     type="checkbox"
                     checked={roundTopRight}
-                    onChange={(e) => setRoundTopRight(e.target.checked)}
+                    onChange={(e) => dispatch({ roundTopRight: e.target.checked })}
                     className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
                   />
                   <span className="text-sm text-gray-700">Top-right</span>
@@ -839,7 +836,7 @@ const SkadisGenerator = () => {
                   <input
                     type="checkbox"
                     checked={roundBottomLeft}
-                    onChange={(e) => setRoundBottomLeft(e.target.checked)}
+                    onChange={(e) => dispatch({ roundBottomLeft: e.target.checked })}
                     className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
                   />
                   <span className="text-sm text-gray-700">Bottom-left</span>
@@ -848,7 +845,7 @@ const SkadisGenerator = () => {
                   <input
                     type="checkbox"
                     checked={roundBottomRight}
-                    onChange={(e) => setRoundBottomRight(e.target.checked)}
+                    onChange={(e) => dispatch({ roundBottomRight: e.target.checked })}
                     className="w-5 h-5 accent-black cursor-pointer flex-shrink-0"
                   />
                   <span className="text-sm text-gray-700">Bottom-right</span>
@@ -858,20 +855,7 @@ const SkadisGenerator = () => {
 
             <button
               onClick={() => {
-                setWidth(DEFAULTS.width);
-                setHeight(DEFAULTS.height);
-                setThickness(DEFAULTS.thickness);
-                setWithMountingHoles(DEFAULTS.withMountingHoles);
-                setScrewHoleDiameter(DEFAULTS.screwHoleDiameter);
-                setScrewHoleInset(DEFAULTS.screwHoleInset);
-                setExtendTop(DEFAULTS.extendTop);
-                setExtendBottom(DEFAULTS.extendBottom);
-                setExtendLeft(DEFAULTS.extendLeft);
-                setExtendRight(DEFAULTS.extendRight);
-                setRoundTopLeft(DEFAULTS.roundTopLeft);
-                setRoundTopRight(DEFAULTS.roundTopRight);
-                setRoundBottomLeft(DEFAULTS.roundBottomLeft);
-                setRoundBottomRight(DEFAULTS.roundBottomRight);
+                dispatch({ ...DEFAULTS });
               }}
               className="w-full bg-white hover:bg-gray-100 text-gray-700 font-medium py-3 px-4 rounded-lg border border-gray-300 transition-colors"
             >
