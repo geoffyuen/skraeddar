@@ -57,10 +57,10 @@ export const SectionBox = (props: {
   title: string;
   children: React.ReactNode;
 }) => (
-  <fieldset className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-    <legend className="text-sm font-medium text-gray-900 mb-3">{props.title}</legend>
+  <section className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+    <h3 className="text-sm font-medium text-gray-900 mb-3">{props.title}</h3>
     {props.children}
-  </fieldset>
+  </section>
 );
 
 export const Logo = () => (
