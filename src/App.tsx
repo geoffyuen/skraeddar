@@ -63,6 +63,9 @@ const SkadisGenerator = () => {
     document.documentElement.classList.toggle('dark', darkMode);
     try { localStorage.setItem('skraeddar_dark', String(darkMode)); }
     catch { /* noop */ }
+    if (sceneRef.current) {
+      sceneRef.current.background = new THREE.Color(darkMode ? 0x1a1a2e : 0xf5f5f5);
+    }
   }, [darkMode]);
 
   useEffect(() => {
@@ -73,7 +76,7 @@ const SkadisGenerator = () => {
     if (!mountRef.current) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf5f5f5);
+    scene.background = new THREE.Color(darkMode ? 0x1a1a2e : 0xf5f5f5);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(
@@ -512,7 +515,7 @@ const SkadisGenerator = () => {
               <div className="flex gap-4 w-fit items-start">
                 <button
                   onClick={generateSpacerSTL}
-                  className="w-fit bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-6 rounded-full transition-colors flex items-center justify-center gap-2"
+                  className="w-fit border border-white/30 bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-6 rounded-full transition-colors flex items-center justify-center gap-2"
                 >
                   <DownloadIcon />
                   Download 10mm Spacer STL
@@ -520,7 +523,7 @@ const SkadisGenerator = () => {
 
                 <button
                   onClick={generateSTL}
-                  className="w-fit bg-black hover:bg-gray-800 text-white font-medium py-3 px-6 rounded-full transition-colors flex items-center justify-center gap-2"
+                  className="w-fit border border-white/30 bg-black hover:bg-gray-800 text-white font-medium py-3 px-6 rounded-full transition-colors flex items-center justify-center gap-2"
                 >
                   <DownloadIcon />
                   Download Pegboard STL
