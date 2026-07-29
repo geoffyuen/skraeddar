@@ -46,22 +46,23 @@ const offsetPath = (path: THREE.Path, dx: number, dy: number) => {
   path.currentPoint.y += dy;
 };
 
-const writeTriangle = (
-  view: DataView,
-  offset: number,
-  v1: THREE.Vector3,
-  v2: THREE.Vector3,
-  v3: THREE.Vector3
-): number => {
-  const subA = new THREE.Vector3().subVectors(v2, v1);
-  const subB = new THREE.Vector3().subVectors(v3, v1);
-  const normal = new THREE.Vector3().crossVectors(subA, subB).normalize();
+const _vA = new THREE.Vector3();
+const _vB = new THREE.Vector3();
+const _vC = new THREE.Vector3();
+const _subA = new THREE.Vector3();
+const _subB = new THREE.Vector3();
+const _normal = new THREE.Vector3();
+
+const writeTriangle = (view: DataView, offset: number): number => {
+  _subA.subVectors(_vB, _vA);
+  _subB.subVectors(_vC, _vA);
+  _normal.crossVectors(_subA, _subB).normalize();
 
   const floats = [
-    normal.x, normal.y, normal.z,
-    v1.x, v1.y, v1.z,
-    v2.x, v2.y, v2.z,
-    v3.x, v3.y, v3.z,
+    _normal.x, _normal.y, _normal.z,
+    _vA.x, _vA.y, _vA.z,
+    _vB.x, _vB.y, _vB.z,
+    _vC.x, _vC.y, _vC.z,
   ];
   for (let i = 0; i < floats.length; i++) {
     view.setFloat32(offset, floats[i], true);
@@ -220,10 +221,10 @@ export const generateBinarySTLBlob = (
   let offset = 84;
 
   const writeAll = (i1: number, i2: number, i3: number) => {
-    const v1 = new THREE.Vector3(positions[i1], positions[i1 + 1], positions[i1 + 2]);
-    const v2 = new THREE.Vector3(positions[i2], positions[i2 + 1], positions[i2 + 2]);
-    const v3 = new THREE.Vector3(positions[i3], positions[i3 + 1], positions[i3 + 2]);
-    offset = writeTriangle(view, offset, v1, v2, v3);
+    _vA.set(positions[i1], positions[i1 + 1], positions[i1 + 2]);
+    _vB.set(positions[i2], positions[i2 + 1], positions[i2 + 2]);
+    _vC.set(positions[i3], positions[i3 + 1], positions[i3 + 2]);
+    offset = writeTriangle(view, offset);
   };
 
   if (indices) {
