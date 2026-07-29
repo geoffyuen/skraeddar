@@ -1,4 +1,4 @@
-import { useReducer, useEffect, useRef, useDeferredValue } from 'react';
+import { useReducer, useEffect, useRef, useDeferredValue, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { STORAGE_KEY, DEFAULTS, COUNTERSINK_DEPTH, SHOW_OUTLINE, BOARD_RADIUS } from './constants';
@@ -39,6 +39,10 @@ const reducer = (state: State, action: Partial<State>): State => ({
 const SkadisGenerator = () => {
   const saved = loadSettings();
   const [state, dispatch] = useReducer(reducer, saved ? { ...DEFAULTS, ...saved } : { ...DEFAULTS });
+  const [darkMode, setDarkMode] = useState(() => {
+    try { return localStorage.getItem('skraeddar_dark') === 'true'; }
+    catch { return false; }
+  });
   const { width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset,
     extendTop, extendBottom, extendLeft, extendRight,
     roundTopLeft, roundTopRight, roundBottomLeft, roundBottomRight } = state;
@@ -54,6 +58,12 @@ const SkadisGenerator = () => {
   const deferredThickness = useDeferredValue(state.thickness);
   const deferredScrewHoleDiameter = useDeferredValue(state.screwHoleDiameter);
   const deferredScrewHoleInset = useDeferredValue(state.screwHoleInset);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    try { localStorage.setItem('skraeddar_dark', String(darkMode)); }
+    catch { /* noop */ }
+  }, [darkMode]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -389,44 +399,67 @@ const SkadisGenerator = () => {
   };
 
   return (
-    <div className="w-full h-screen flex flex-col bg-gray-50">
-      <header className="bg-white shadow-sm border-b border-gray-200 p-3 md:p-4">
+    <div className="w-full h-screen flex flex-col bg-gray-50 dark:bg-gray-950">
+      <header className="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-800 p-3 md:p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 md:gap-3">
             <Logo />
             <div>
-              <h1 className="text-xl md:text-2xl font-bold text-gray-900">Skräddar: IKEA SKÅDIS Pegboard Generator</h1>
-              <p className="text-xs md:text-sm text-gray-600">Create your own IKEA SKÅDIS pegboard for 3D printing</p>
+              <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-50">Skräddar: IKEA SKÅDIS Pegboard Generator</h1>
+              <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400">Create your own IKEA SKÅDIS pegboard for 3D printing</p>
             </div>
           </div>
+          <button
+            onClick={() => setDarkMode(d => !d)}
+            className="p-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            aria-label="Toggle dark mode"
+          >
+            {darkMode ? (
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="5"></circle>
+                <line x1="12" y1="1" x2="12" y2="3"></line>
+                <line x1="12" y1="21" x2="12" y2="23"></line>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                <line x1="1" y1="12" x2="3" y2="12"></line>
+                <line x1="21" y1="12" x2="23" y2="12"></line>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+            )}
+          </button>
         </div>
       </header>
 
       <main className="relative flex flex-1 overflow-hidden flex-col md:flex-row min-h-0">
-        <section className="w-full md:w-80 md:flex-shrink-0 bg-white border-b md:border-r md:border-b-0 border-gray-200 p-4 md:p-6 overflow-y-auto max-h-[40vh] md:max-h-none">
-          <h2 className="text-base md:text-lg font-semibold mb-4 text-gray-900">Settings</h2>
+        <section className="w-full md:w-80 md:flex-shrink-0 bg-white dark:bg-gray-900 border-b md:border-r md:border-b-0 border-gray-200 dark:border-gray-800 p-4 md:p-6 overflow-y-auto max-h-[40vh] md:max-h-none">
+          <h2 className="text-base md:text-lg font-semibold mb-4 text-gray-900 dark:text-gray-50">Settings</h2>
           
           <div className="space-y-4 md:space-y-6">
             <Slider label="Width" name="width" value={width} min={80} max={800} step={40} suffix="mm" onChange={(e) => dispatch({ width: Number(e.target.value) })} />
             <Slider label="Height" name="height" value={height} min={80} max={800} step={40} suffix="mm" onChange={(e) => dispatch({ height: Number(e.target.value) })} />
             <Slider label="Thickness" name="thickness" value={thickness} min={2} max={8} step={0.5} suffix="mm" onChange={(e) => dispatch({ thickness: Number(e.target.value) })}>
               {thickness !== 5 && (
-                <p className="mt-2 text-xs text-gray-500 italic">
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 italic">
                   ⚠️ Recommended: 5mm (standard thickness). Deviation may affect hook compatibility.
                 </p>
               )}
             </Slider>
 
-            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={withMountingHoles}
                   onChange={(e) => dispatch({ withMountingHoles: e.target.checked })}
-                  className="mt-0.5 w-5 h-5 accent-black cursor-pointer flex-shrink-0"
+                  className="mt-0.5 w-5 h-5 accent-black dark:accent-white cursor-pointer flex-shrink-0"
                 />
                 <div>
-                  <span className="text-sm font-medium text-gray-900 block">Screw holes</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100 block">Screw holes</span>
                 </div>
               </label>
 
@@ -468,7 +501,7 @@ const SkadisGenerator = () => {
               onClick={() => {
                 dispatch({ ...DEFAULTS });
               }}
-              className="w-full bg-white hover:bg-gray-100 text-gray-700 font-medium py-3 px-4 rounded-lg border border-gray-300 transition-colors"
+              className="w-full bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium py-3 px-4 rounded-lg border border-gray-300 dark:border-gray-600 transition-colors"
             >
               Reset to Defaults
             </button>            
@@ -495,7 +528,7 @@ const SkadisGenerator = () => {
 
               </div>
 
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-black dark:text-gray-400">
                 Print 4 spacers separately if you added mounting holes.
               </p>
             </section>
@@ -508,7 +541,7 @@ const SkadisGenerator = () => {
           <div ref={mountRef} className="w-full h-full min-h-[300px]" />
           <button
             onClick={resetView}
-            className="absolute top-3 left-3 bg-white/80 hover:bg-white text-gray-700 text-xs font-medium py-1.5 px-3 rounded border border-gray-300 shadow-sm transition-colors"
+            className="absolute top-3 left-3 bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs font-medium py-1.5 px-3 rounded border border-gray-300 dark:border-gray-600 shadow-sm transition-colors"
           >
             Reset view
           </button>
