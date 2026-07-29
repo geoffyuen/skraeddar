@@ -2,7 +2,7 @@ import { useReducer, useEffect, useRef, useDeferredValue, useState } from 'react
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { STORAGE_KEY, DEFAULTS, COUNTERSINK_DEPTH, SHOW_OUTLINE, BOARD_RADIUS } from './constants';
-import { buildBoardShape, formatTriangle } from './board';
+import { buildBoardShape, generateBinarySTLBlob } from './board';
 import { Slider, Checkbox, SectionBox, Logo, DownloadIcon } from './components';
 
 const loadSettings = () => {
@@ -284,45 +284,9 @@ const SkadisGenerator = () => {
       roundTopLeft, roundTopRight, roundBottomLeft, roundBottomRight]);
 
   const generateSTL = () => {
-    let stl = 'solid skadis_pegboard\n';
-
     const geometry = geometryRef.current;
     if (!geometry) return;
-    
-    const positions = geometry.attributes.position.array;
-    const indices = geometry.index ? geometry.index.array : null;
-
-    if (indices) {
-      for (let i = 0; i < indices.length; i += 3) {
-        const v1 = new THREE.Vector3(
-          positions[indices[i] * 3],
-          positions[indices[i] * 3 + 1],
-          positions[indices[i] * 3 + 2]
-        );
-        const v2 = new THREE.Vector3(
-          positions[indices[i + 1] * 3],
-          positions[indices[i + 1] * 3 + 1],
-          positions[indices[i + 1] * 3 + 2]
-        );
-        const v3 = new THREE.Vector3(
-          positions[indices[i + 2] * 3],
-          positions[indices[i + 2] * 3 + 1],
-          positions[indices[i + 2] * 3 + 2]
-        );
-        stl += formatTriangle(v1, v2, v3);
-      }
-    } else {
-      for (let i = 0; i < positions.length; i += 9) {
-        const v1 = new THREE.Vector3(positions[i], positions[i + 1], positions[i + 2]);
-        const v2 = new THREE.Vector3(positions[i + 3], positions[i + 4], positions[i + 5]);
-        const v3 = new THREE.Vector3(positions[i + 6], positions[i + 7], positions[i + 8]);
-        stl += formatTriangle(v1, v2, v3);
-      }
-    }
-
-    stl += 'endsolid skadis_pegboard\n';
-
-    const blob = new Blob([stl], { type: 'text/plain' });
+    const blob = generateBinarySTLBlob(geometry, `skadis_${width}x${height}x${thickness}mm`);
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -334,8 +298,6 @@ const SkadisGenerator = () => {
   const generateSpacerSTL = () => {
     const innerRadius = screwHoleDiameter / 2;
     const outerRadius = screwHoleDiameter / 2 + 3;
-    
-    let stl = 'solid spacer_10mm\n';
 
     const ringShape = new THREE.Shape();
     ringShape.absarc(0, 0, outerRadius, 0, Math.PI * 2, false);
@@ -344,47 +306,14 @@ const SkadisGenerator = () => {
     holePath.absarc(0, 0, innerRadius, 0, Math.PI * 2, true);
     ringShape.holes.push(holePath);
     
-    const extrudeSettings = {
+    const geometry = new THREE.ExtrudeGeometry(ringShape, {
       steps: 1,
       depth: COUNTERSINK_DEPTH,
       bevelEnabled: false
-    };
+    });
     
-    const geometry = new THREE.ExtrudeGeometry(ringShape, extrudeSettings);
-    const positions = geometry.attributes.position.array;
-    const indices = geometry.index ? geometry.index.array : null;
-
-    if (indices) {
-      for (let i = 0; i < indices.length; i += 3) {
-        const v1 = new THREE.Vector3(
-          positions[indices[i] * 3],
-          positions[indices[i] * 3 + 1],
-          positions[indices[i] * 3 + 2]
-        );
-        const v2 = new THREE.Vector3(
-          positions[indices[i + 1] * 3],
-          positions[indices[i + 1] * 3 + 1],
-          positions[indices[i + 1] * 3 + 2]
-        );
-        const v3 = new THREE.Vector3(
-          positions[indices[i + 2] * 3],
-          positions[indices[i + 2] * 3 + 1],
-          positions[indices[i + 2] * 3 + 2]
-        );
-        stl += formatTriangle(v1, v2, v3);
-      }
-    } else {
-      for (let i = 0; i < positions.length; i += 9) {
-        const v1 = new THREE.Vector3(positions[i], positions[i + 1], positions[i + 2]);
-        const v2 = new THREE.Vector3(positions[i + 3], positions[i + 4], positions[i + 5]);
-        const v3 = new THREE.Vector3(positions[i + 6], positions[i + 7], positions[i + 8]);
-        stl += formatTriangle(v1, v2, v3);
-      }
-    }
-
-    stl += 'endsolid spacer_10mm\n';
-
-    const blob = new Blob([stl], { type: 'text/plain' });
+    const blob = generateBinarySTLBlob(geometry, 'spacer_10mm');
+    geometry.dispose();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

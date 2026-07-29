@@ -31,24 +31,29 @@ const addPillHole = (shape: THREE.Shape, xPos: number, yPos: number) => {
   shape.holes.push(holePath);
 };
 
-export const formatTriangle = (v1: THREE.Vector3, v2: THREE.Vector3, v3: THREE.Vector3): string => {
-  const normal = new THREE.Vector3()
-    .crossVectors(
-      new THREE.Vector3().subVectors(v2, v1),
-      new THREE.Vector3().subVectors(v3, v1)
-    )
-    .normalize();
+const writeTriangle = (
+  view: DataView,
+  offset: number,
+  v1: THREE.Vector3,
+  v2: THREE.Vector3,
+  v3: THREE.Vector3
+): number => {
+  const subA = new THREE.Vector3().subVectors(v2, v1);
+  const subB = new THREE.Vector3().subVectors(v3, v1);
+  const normal = new THREE.Vector3().crossVectors(subA, subB).normalize();
 
-  let result = '';
-  result += `  facet normal ${normal.x.toFixed(6)} ${normal.y.toFixed(6)} ${normal.z.toFixed(6)}\n`;
-  result += `    outer loop\n`;
-  result += `      vertex ${v1.x.toFixed(6)} ${v1.y.toFixed(6)} ${v1.z.toFixed(6)}\n`;
-  result += `      vertex ${v2.x.toFixed(6)} ${v2.y.toFixed(6)} ${v2.z.toFixed(6)}\n`;
-  result += `      vertex ${v3.x.toFixed(6)} ${v3.y.toFixed(6)} ${v3.z.toFixed(6)}\n`;
-  result += `    endloop\n`;
-  result += `  endfacet\n`;
-
-  return result;
+  const floats = [
+    normal.x, normal.y, normal.z,
+    v1.x, v1.y, v1.z,
+    v2.x, v2.y, v2.z,
+    v3.x, v3.y, v3.z,
+  ];
+  for (let i = 0; i < floats.length; i++) {
+    view.setFloat32(offset, floats[i], true);
+    offset += 4;
+  }
+  view.setUint16(offset, 0, true);
+  return offset + 2;
 };
 
 export const buildBoardShape = (params: BoardShapeParams): { shape: THREE.Shape; totalHoles: number } => {
@@ -173,4 +178,48 @@ export const buildBoardShape = (params: BoardShapeParams): { shape: THREE.Shape;
   });
 
   return { shape, totalHoles };
+};
+
+export const generateBinarySTLBlob = (
+  geometry: THREE.ExtrudeGeometry,
+  solidName: string
+): Blob => {
+  const positions = geometry.attributes.position.array;
+  const indices = geometry.index ? geometry.index.array : null;
+
+  const triangleCount = indices
+    ? indices.length / 3
+    : positions.length / 9;
+
+  const buffer = new ArrayBuffer(84 + triangleCount * 50);
+  const view = new DataView(buffer);
+
+  const header = `Skraeddar - ${solidName}`;
+  for (let i = 0; i < 80; i++) {
+    view.setUint8(i, i < header.length ? header.charCodeAt(i) : 0);
+  }
+  view.setUint32(80, triangleCount, true);
+
+  let offset = 84;
+
+  const writeAll = (i1: number, i2: number, i3: number) => {
+    const v1 = new THREE.Vector3(positions[i1], positions[i1 + 1], positions[i1 + 2]);
+    const v2 = new THREE.Vector3(positions[i2], positions[i2 + 1], positions[i2 + 2]);
+    const v3 = new THREE.Vector3(positions[i3], positions[i3 + 1], positions[i3 + 2]);
+    offset = writeTriangle(view, offset, v1, v2, v3);
+  };
+
+  if (indices) {
+    for (let i = 0; i < indices.length; i += 3) {
+      writeAll(
+        indices[i] * 3, indices[i + 1] * 3, indices[i + 2] * 3
+      );
+    }
+  } else {
+    for (let i = 0; i < positions.length; i += 9) {
+      writeAll(i, i + 3, i + 6);
+    }
+  }
+
+  return new Blob([buffer], { type: 'model/stl' });
 };
