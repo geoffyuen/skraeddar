@@ -402,8 +402,8 @@ const SkadisGenerator = () => {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden flex-col md:flex-row min-h-0">
-        <aside className="w-full md:w-80 md:flex-shrink-0 bg-white border-b md:border-r md:border-b-0 border-gray-200 p-4 md:p-6 overflow-y-auto max-h-[40vh] md:max-h-none">
+      <main className="relative flex flex-1 overflow-hidden flex-col md:flex-row min-h-0">
+        <section className="w-full md:w-80 md:flex-shrink-0 bg-white border-b md:border-r md:border-b-0 border-gray-200 p-4 md:p-6 overflow-y-auto max-h-[40vh] md:max-h-none">
           <h2 className="text-base md:text-lg font-semibold mb-4 text-gray-900">Settings</h2>
           
           <div className="space-y-4 md:space-y-6">
@@ -472,31 +472,39 @@ const SkadisGenerator = () => {
             >
               Reset to Defaults
             </button>            
+            
+            <section className="absolute z-10 bottom-4 right-4 w-fit text-right">
+              <h2 className="sr-only">Download Models</h2>
 
-            <button
-              onClick={generateSTL}
-              className="w-full bg-black hover:bg-gray-800 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-between gap-2"
-            >
-              Pegboard STL
-              <DownloadIcon />
-            </button>
+              <div className="flex gap-4 w-fit items-start">
+                <button
+                  onClick={generateSpacerSTL}
+                  className="w-fit bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-6 rounded-full transition-colors flex items-center justify-center gap-2"
+                >
+                  <DownloadIcon />
+                  Download 10mm Spacer STL
+                </button>
 
-            <button
-              onClick={generateSpacerSTL}
-              className="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-4 rounded-lg transition-colors flex items-center justify-between gap-2"
-            >
-              10mm Spacer STL
-              <DownloadIcon />
-            </button>
+                <button
+                  onClick={generateSTL}
+                  className="w-fit bg-black hover:bg-gray-800 text-white font-medium py-3 px-6 rounded-full transition-colors flex items-center justify-center gap-2"
+                >
+                  <DownloadIcon />
+                  Download Pegboard STL
+                </button>
 
-            <p className="text-xs text-gray-500 text-center">
-              Print 4 spacers separately if you added mounting holes.
-            </p>
+              </div>
+
+              <p className="mt-2 text-xs text-gray-500">
+                Print 4 spacers separately if you added mounting holes.
+              </p>
+            </section>
 
           </div>
-        </aside>
+        </section>
 
-        <main className="flex-1 relative min-h-[300px] md:min-h-0">
+        <section className="flex-1 relative min-h-[300px] md:min-h-0">
+          <h2 className="sr-only">Board Preview</h2>
           <div ref={mountRef} className="w-full h-full min-h-[300px]" />
           <button
             onClick={resetView}
@@ -504,8 +512,8 @@ const SkadisGenerator = () => {
           >
             Reset view
           </button>
-        </main>
-      </div>
+        </section>
+      </main>
     </div>
   );
 };
