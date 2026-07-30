@@ -46,6 +46,13 @@ const offsetPath = (path: THREE.Path, dx: number, dy: number) => {
   path.currentPoint.y += dy;
 };
 
+// Binary STL format constants
+const STL_HEADER = 80;
+const STL_COUNT = 4;
+const STL_TRIANGLE = 50; // 12 normal + 36 vertices + 2 attribute bytes
+const STL_FLOAT = 4;
+const STL_UINT16 = 2;
+
 const _vA = new THREE.Vector3();
 const _vB = new THREE.Vector3();
 const _vC = new THREE.Vector3();
@@ -66,10 +73,10 @@ const writeTriangle = (view: DataView, offset: number): number => {
   ];
   for (let i = 0; i < floats.length; i++) {
     view.setFloat32(offset, floats[i], true);
-    offset += 4;
+    offset += STL_FLOAT;
   }
   view.setUint16(offset, 0, true);
-  return offset + 2;
+  return offset + STL_UINT16;
 };
 
 let _prevKey = '';
@@ -217,16 +224,16 @@ export const generateBinarySTLBlob = (
     ? indices.length / 3
     : positions.length / 9;
 
-  const buffer = new ArrayBuffer(84 + triangleCount * 50);
+  const buffer = new ArrayBuffer(STL_HEADER + STL_COUNT + triangleCount * STL_TRIANGLE);
   const view = new DataView(buffer);
 
   const header = `Skraeddar - ${solidName}`;
-  for (let i = 0; i < 80; i++) {
+  for (let i = 0; i < STL_HEADER; i++) {
     view.setUint8(i, i < header.length ? header.charCodeAt(i) : 0);
   }
-  view.setUint32(80, triangleCount, true);
+  view.setUint32(STL_HEADER, triangleCount, true);
 
-  let offset = 84;
+  let offset = STL_HEADER + STL_COUNT;
 
   const writeAll = (i1: number, i2: number, i3: number) => {
     _vA.set(positions[i1], positions[i1 + 1], positions[i1 + 2]);
