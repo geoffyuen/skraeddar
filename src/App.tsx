@@ -2,13 +2,19 @@ import { useReducer, useEffect, useRef, useDeferredValue, useState } from 'react
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { STORAGE_KEY, DEFAULTS, COUNTERSINK_DEPTH, SHOW_OUTLINE, BOARD_RADIUS } from './constants';
-import { buildBoardShape, generateBinarySTLBlob } from './board';
+import { buildBoardShape, generateBinarySTLBlob, mergeSTL } from './board';
 import { Slider, Checkbox, SectionBox, Logo, DownloadIcon } from './components';
 
 const loadSettings = () => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : null;
+    if (!saved) return null;
+    const parsed = JSON.parse(saved);
+    if (parsed.withMountingHoles !== undefined) {
+      parsed.mountType = parsed.withMountingHoles ? 'holes' : 'none';
+      delete parsed.withMountingHoles;
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -18,7 +24,7 @@ type State = {
   width: number;
   height: number;
   thickness: number;
-  withMountingHoles: boolean;
+  mountType: 'none' | 'holes' | 'spacers';
   screwHoleDiameter: number;
   screwHoleInset: number;
   extendTop: boolean;
@@ -43,7 +49,7 @@ const SkadisGenerator = () => {
     try { return localStorage.getItem('skraeddar_dark') === 'true'; }
     catch { return false; }
   });
-  const { width, height, thickness, withMountingHoles, screwHoleDiameter, screwHoleInset,
+  const { width, height, thickness, mountType, screwHoleDiameter, screwHoleInset,
     extendTop, extendBottom, extendLeft, extendRight,
     roundTopLeft, roundTopRight, roundBottomLeft, roundBottomRight } = state;
   const mountRef = useRef<HTMLDivElement>(null);
@@ -87,7 +93,7 @@ const SkadisGenerator = () => {
     );
     const maxDim = Math.max(width, height);
     camera.position.set(maxDim * 0.7, maxDim * 0.7, maxDim * 1.5);
-    camera.lookAt(width / 2, height / 2, 0);
+    camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -109,7 +115,7 @@ const SkadisGenerator = () => {
     animate();
 
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(width / 2, height / 2, 0);
+    controls.target.set(0, 0, 0);
     controls.enableDamping = true;
     controls.dampingFactor = 0.15;
     controls.minDistance = 50;
@@ -167,7 +173,7 @@ const SkadisGenerator = () => {
     );
 
     const { shape, totalHoles } = buildBoardShape({
-      width, height, withMountingHoles, screwHoleDiameter, screwHoleInset,
+      width, height, mountType, screwHoleDiameter, screwHoleInset,
       extendTop, extendBottom, extendLeft, extendRight,
       roundTopLeft, roundTopRight, roundBottomLeft, roundBottomRight
     });
@@ -187,7 +193,6 @@ const SkadisGenerator = () => {
       side: THREE.FrontSide
     });
     const board = new THREE.Mesh(boardGeometry, boardMaterial);
-    board.position.set(width / 2, height / 2, 0);
     board.rotation.x = 0;
     board.userData = { totalHoles };
     sceneRef.current.add(board);
@@ -271,19 +276,99 @@ const SkadisGenerator = () => {
       const outlineGeometry = new THREE.BufferGeometry().setFromPoints(outlinePoints);
       const outlineMaterial = new THREE.LineBasicMaterial({ color: 0x333333, linewidth: 2 });
       const outline = new THREE.Line(outlineGeometry, outlineMaterial);
-      outline.position.set(width / 2, height / 2, -thickness);
+      outline.position.set(0, 0, -thickness);
       sceneRef.current.add(outline);
     }
 
+    if (mountType === 'spacers') {
+      const innerRadius = screwHoleDiameter / 2;
+      const outerRadius = screwHoleDiameter / 2 + 3;
+
+      const ringShape = new THREE.Shape();
+      ringShape.absarc(0, 0, outerRadius, 0, Math.PI * 2, false);
+      const holePath = new THREE.Path();
+      holePath.absarc(0, 0, innerRadius, 0, Math.PI * 2, true);
+      ringShape.holes.push(holePath);
+
+      const ringGeom = new THREE.ExtrudeGeometry(ringShape, {
+        steps: 1,
+        depth: COUNTERSINK_DEPTH,
+        bevelEnabled: false,
+      });
+
+      const ringMaterial = new THREE.MeshStandardMaterial({
+        color: 0x595959,
+        roughness: 0.5,
+        metalness: 0.1,
+        side: THREE.FrontSide,
+      });
+
+      const corners = [
+        { x: -width/2 + screwHoleInset, y: -height/2 + screwHoleInset },
+        { x: width/2 - screwHoleInset, y: -height/2 + screwHoleInset },
+        { x: -width/2 + screwHoleInset, y: height/2 - screwHoleInset },
+        { x: width/2 - screwHoleInset, y: height/2 - screwHoleInset },
+      ];
+
+      for (const c of corners) {
+        const ring = new THREE.Mesh(ringGeom.clone(), ringMaterial);
+        ring.position.set(c.x, c.y, thickness);
+        sceneRef.current.add(ring);
+      }
+    }
+
     if (controlsRef.current) {
-      controlsRef.current.target.set(width / 2, height / 2, 0);
+      controlsRef.current.target.set(0, 0, 0);
       controlsRef.current.update();
     }
-  }, [deferredWidth, deferredHeight, deferredThickness, withMountingHoles, deferredScrewHoleDiameter, deferredScrewHoleInset,
+  }, [deferredWidth, deferredHeight, deferredThickness, mountType, deferredScrewHoleDiameter, deferredScrewHoleInset,
       extendTop, extendBottom, extendLeft, extendRight,
       roundTopLeft, roundTopRight, roundBottomLeft, roundBottomRight]);
 
   const generateSTL = () => {
+    if (mountType === 'spacers') {
+      const innerRadius = screwHoleDiameter / 2;
+      const outerRadius = screwHoleDiameter / 2 + 3;
+
+      const ringShape = new THREE.Shape();
+      ringShape.absarc(0, 0, outerRadius, 0, Math.PI * 2, false);
+      const holePath = new THREE.Path();
+      holePath.absarc(0, 0, innerRadius, 0, Math.PI * 2, true);
+      ringShape.holes.push(holePath);
+
+      const extrudeSettings = {
+        steps: 1,
+        depth: COUNTERSINK_DEPTH,
+        bevelEnabled: false,
+      };
+
+      const ringGeom = new THREE.ExtrudeGeometry(ringShape, extrudeSettings);
+      const corners = [
+        { x: -width/2 + screwHoleInset, y: -height/2 + screwHoleInset },
+        { x: width/2 - screwHoleInset, y: -height/2 + screwHoleInset },
+        { x: -width/2 + screwHoleInset, y: height/2 - screwHoleInset },
+        { x: width/2 - screwHoleInset, y: height/2 - screwHoleInset },
+      ];
+
+      const entries = [
+        { geometry: geometryRef.current!, offset: { x: 0, y: 0, z: 0 } },
+        ...corners.map(c => ({
+          geometry: ringGeom,
+          offset: { x: c.x, y: c.y, z: thickness },
+        })),
+      ];
+
+      const blob = mergeSTL(entries, `skadis_${width}x${height}x${thickness}mm_spacers`);
+      ringGeom.dispose();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `skadis_${width}x${height}x${thickness}mm_spacers.stl`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
     const geometry = geometryRef.current;
     if (!geometry) return;
     const blob = generateBinarySTLBlob(geometry, `skadis_${width}x${height}x${thickness}mm`);
@@ -326,7 +411,7 @@ const SkadisGenerator = () => {
     if (!cameraRef.current || !controlsRef.current) return;
     const maxDim = Math.max(width, height);
     cameraRef.current.position.set(maxDim * 0.7, maxDim * 0.7, maxDim * 1.5);
-    controlsRef.current.target.set(width / 2, height / 2, 0);
+    controlsRef.current.target.set(0, 0, 0);
     controlsRef.current.update();
   };
 
@@ -383,25 +468,27 @@ const SkadisGenerator = () => {
             </Slider>
 
             <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={withMountingHoles}
-                  onChange={(e) => dispatch({ withMountingHoles: e.target.checked })}
-                  className="mt-0.5 w-5 h-5 accent-black dark:accent-white cursor-pointer flex-shrink-0"
-                />
-                <div>
-                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100 block">Screw holes</span>
-                </div>
-              </label>
+              <div className="mb-4">
+                <label htmlFor="mountType" className="text-sm font-medium text-gray-900 dark:text-gray-100 block mb-2">Mounting</label>
+                <select
+                  id="mountType"
+                  value={mountType}
+                  onChange={(e) => dispatch({ mountType: e.target.value as 'none' | 'holes' | 'spacers' })}
+                  className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+                >
+                  <option value="none">None</option>
+                  <option value="holes">Screw holes only</option>
+                  <option value="spacers">With integrated spacers</option>
+                </select>
+              </div>
 
-              {withMountingHoles && (
+              {mountType !== 'none' && (
                 <>
                   <div className="mt-4">
-                    <Slider label="Screw Hole Diameter" name="screwHoleDiameter" value={screwHoleDiameter} min={3} max={8} step={0.05} suffix="mm" onChange={(e) => dispatch({ screwHoleDiameter: Number(e.target.value) })} />
+                    <Slider label="Mount Diameter" name="screwHoleDiameter" value={screwHoleDiameter} min={3} max={8} step={0.05} suffix="mm" onChange={(e) => dispatch({ screwHoleDiameter: Number(e.target.value) })} />
                   </div>
                   <div className="mt-4">
-                    <Slider label="Screw Hole Inset" name="screwHoleInset" value={screwHoleInset} min={5} max={20} step={0.05} suffix="mm" onChange={(e) => dispatch({ screwHoleInset: Number(e.target.value) })} />
+                    <Slider label="Mount Inset" name="screwHoleInset" value={screwHoleInset} min={5} max={20} step={0.05} suffix="mm" onChange={(e) => dispatch({ screwHoleInset: Number(e.target.value) })} />
                   </div>
                 </>
               )}
@@ -442,13 +529,15 @@ const SkadisGenerator = () => {
               <h2 className="sr-only">Download Models</h2>
 
               <div className="flex gap-4 w-fit items-start">
-                <button
-                  onClick={generateSpacerSTL}
-                  className="w-fit border border-white/30 bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-6 rounded-full transition-colors flex items-center justify-center gap-2"
-                >
-                  <DownloadIcon />
-                  Download 10mm Spacer STL
-                </button>
+                {mountType === 'holes' && (
+                  <button
+                    onClick={generateSpacerSTL}
+                    className="w-fit border border-white/30 bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-6 rounded-full transition-colors flex items-center justify-center gap-2"
+                  >
+                    <DownloadIcon />
+                    Download 10mm Spacer STL
+                  </button>
+                )}
 
                 <button
                   onClick={generateSTL}
@@ -460,9 +549,11 @@ const SkadisGenerator = () => {
 
               </div>
 
-              <p className="mt-2 text-xs text-black dark:text-gray-400">
-                Print 4 spacers separately if you added mounting holes.
-              </p>
+              {mountType === 'holes' && (
+                <p className="mt-2 text-xs text-black dark:text-gray-400">
+                  Print 4 spacers separately if you added mounting holes.
+                </p>
+              )}
             </section>
 
           </div>

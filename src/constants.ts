@@ -4,7 +4,7 @@ export const DEFAULTS = {
   width: 280,
   height: 280,
   thickness: 5,
-  withMountingHoles: true,
+  mountType: 'holes',
   screwHoleDiameter: 5,
   screwHoleInset: 8.75,
   extendTop: false,
@@ -15,7 +15,7 @@ export const DEFAULTS = {
   roundTopRight: true,
   roundBottomLeft: true,
   roundBottomRight: true,
-};
+} as const;
 
 export const HOLE_WIDTH = 5;
 export const HOLE_HEIGHT = 15;

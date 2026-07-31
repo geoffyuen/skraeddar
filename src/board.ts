@@ -4,7 +4,7 @@ import { HOLE_WIDTH, HOLE_HEIGHT, HOLE_SPACING_X, HOLE_SPACING_Y, EDGE_MARGIN, B
 export interface BoardShapeParams {
   width: number;
   height: number;
-  withMountingHoles: boolean;
+  mountType: 'none' | 'holes' | 'spacers';
   screwHoleDiameter: number;
   screwHoleInset: number;
   extendTop: boolean;
@@ -83,10 +83,10 @@ let _prevKey = '';
 let _prevResult: { shape: THREE.Shape; totalHoles: number } | null = null;
 
 export const buildBoardShape = (params: BoardShapeParams): { shape: THREE.Shape; totalHoles: number } => {
-  const key = `${params.width}|${params.height}|${params.withMountingHoles}|${params.screwHoleDiameter}|${params.screwHoleInset}|${params.extendTop}|${params.extendBottom}|${params.extendLeft}|${params.extendRight}|${params.roundTopLeft}|${params.roundTopRight}|${params.roundBottomLeft}|${params.roundBottomRight}`;
+  const key = `${params.width}|${params.height}|${params.mountType}|${params.screwHoleDiameter}|${params.screwHoleInset}|${params.extendTop}|${params.extendBottom}|${params.extendLeft}|${params.extendRight}|${params.roundTopLeft}|${params.roundTopRight}|${params.roundBottomLeft}|${params.roundBottomRight}`;
   if (_prevKey === key && _prevResult) return _prevResult;
 
-  const { width, height, withMountingHoles, screwHoleDiameter, screwHoleInset,
+  const { width, height, mountType, screwHoleDiameter, screwHoleInset,
     extendTop, extendBottom, extendLeft, extendRight,
     roundTopLeft, roundTopRight, roundBottomLeft, roundBottomRight } = params;
 
@@ -194,7 +194,7 @@ export const buildBoardShape = (params: BoardShapeParams): { shape: THREE.Shape;
     }
   }
 
-  const screwPositions = withMountingHoles ? [
+  const screwPositions = mountType !== 'none' ? [
     { x: -width/2 + screwHoleInset, y: -height/2 + screwHoleInset },
     { x: width/2 - screwHoleInset, y: -height/2 + screwHoleInset },
     { x: -width/2 + screwHoleInset, y: height/2 - screwHoleInset },
@@ -251,6 +251,57 @@ export const generateBinarySTLBlob = (
   } else {
     for (let i = 0; i < positions.length; i += 9) {
       writeAll(i, i + 3, i + 6);
+    }
+  }
+
+  return new Blob([buffer], { type: 'model/stl' });
+};
+
+export const mergeSTL = (
+  entries: { geometry: THREE.ExtrudeGeometry; offset?: { x: number; y: number; z: number } }[],
+  solidName: string
+): Blob => {
+  let totalTriangles = 0;
+  const metas = entries.map(e => {
+    const pos = e.geometry.attributes.position.array;
+    const idx = e.geometry.index ? e.geometry.index.array : null;
+    const count = idx ? idx.length / 3 : pos.length / 9;
+    totalTriangles += count;
+    return { pos, idx, count, offset: e.offset };
+  });
+
+  const buffer = new ArrayBuffer(STL_HEADER + STL_COUNT + totalTriangles * STL_TRIANGLE);
+  const view = new DataView(buffer);
+
+  const header = `Skraeddar - ${solidName}`;
+  for (let i = 0; i < STL_HEADER; i++) {
+    view.setUint8(i, i < header.length ? header.charCodeAt(i) : 0);
+  }
+  view.setUint32(STL_HEADER, totalTriangles, true);
+
+  let offset = STL_HEADER + STL_COUNT;
+
+  for (const meta of metas) {
+    const { pos, idx, offset: off } = meta;
+    const ox = off?.x ?? 0;
+    const oy = off?.y ?? 0;
+    const oz = off?.z ?? 0;
+
+    const writeAll = (i1: number, i2: number, i3: number) => {
+      _vA.set(pos[i1] + ox, pos[i1 + 1] + oy, pos[i1 + 2] + oz);
+      _vB.set(pos[i2] + ox, pos[i2 + 1] + oy, pos[i2 + 2] + oz);
+      _vC.set(pos[i3] + ox, pos[i3 + 1] + oy, pos[i3 + 2] + oz);
+      offset = writeTriangle(view, offset);
+    };
+
+    if (idx) {
+      for (let i = 0; i < idx.length; i += 3) {
+        writeAll(idx[i] * 3, idx[i + 1] * 3, idx[i + 2] * 3);
+      }
+    } else {
+      for (let i = 0; i < pos.length; i += 9) {
+        writeAll(i, i + 3, i + 6);
+      }
     }
   }
 
