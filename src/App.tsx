@@ -1,8 +1,8 @@
 import { useReducer, useEffect, useRef, useDeferredValue, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { STORAGE_KEY, DEFAULTS, SPACER_DEPTH, SHOW_OUTLINE, BOARD_RADIUS, COMMAND_STRIP } from './constants';
-import { buildBoardShape, generateBinarySTLBlob, mergeSTL, createRoundedRectShape } from './board';
+import { STORAGE_KEY, DEFAULTS, SPACER_DEPTH, SHOW_OUTLINE, BOARD_RADIUS, COMMAND_STRIP, FIN_HEIGHT } from './constants';
+import { buildBoardShape, generateBinarySTLBlob, mergeSTL, getFinPlacements, createFinGeometry, createSpacerGeometries } from './board';
 import { Slider, Checkbox, SectionBox, Logo, DownloadIcon } from './components';
 
 const loadSettings = () => {
@@ -319,31 +319,27 @@ const SkadisGenerator = () => {
 
     if (mountType.startsWith('command-strip')) {
       const sizeKey = mountType.split('-').pop() as keyof typeof COMMAND_STRIP;
-      const { width: cmdW, height: cmdH } = COMMAND_STRIP[sizeKey];
-      const rectShape = createRoundedRectShape(cmdW, cmdH, BOARD_RADIUS);
-      const rectGeom = new THREE.ExtrudeGeometry(rectShape, {
-        steps: 1,
-        depth: SPACER_DEPTH,
-        bevelEnabled: false,
-      });
-      const rectMaterial = new THREE.MeshStandardMaterial({
-        color: 0x595959,
+      const finGeom = createFinGeometry();
+      for (const p of getFinPlacements(width, height, sizeKey)) {
+        const fin = new THREE.Mesh(finGeom, boardMaterial);
+        fin.position.set(p.x, p.y - FIN_HEIGHT / 2, 0);
+        sceneRef.current.add(fin);
+      }
+
+      const spacerMaterial = new THREE.MeshStandardMaterial({
+        color: 0x4f8ac9,
         roughness: 0.5,
         metalness: 0.1,
         side: THREE.FrontSide,
       });
-
-      const positions = [
-        { x: -width/2 + cmdW / 2, y: height/2 - cmdH / 2 },
-        { x: width/2 - cmdW / 2, y: height/2 - cmdH / 2 },
-        { x: -width/2 + cmdW / 2, y: -height/2 + cmdH / 2 },
-        { x: width/2 - cmdW / 2, y: -height/2 + cmdH / 2 },
-      ];
-
-      for (const p of positions) {
-        const mesh = new THREE.Mesh(rectGeom.clone(), rectMaterial);
-        mesh.position.set(p.x, p.y, thickness);
-        sceneRef.current.add(mesh);
+      const spacer = createSpacerGeometries(sizeKey);
+      const spacerPlacements = getFinPlacements(width, height, sizeKey);
+      for (const p of spacerPlacements) {
+        for (const part of spacer.parts) {
+          const mesh = new THREE.Mesh(part.geometry, spacerMaterial);
+          mesh.position.set(p.x + part.offset.x, p.y + part.offset.y, part.offset.z);
+          sceneRef.current.add(mesh);
+        }
       }
     }
 
@@ -401,31 +397,17 @@ const SkadisGenerator = () => {
 
     if (mountType.startsWith('command-strip')) {
       const sizeKey = mountType.split('-').pop() as keyof typeof COMMAND_STRIP;
-      const { width: cmdW, height: cmdH } = COMMAND_STRIP[sizeKey];
-      const rectShape = createRoundedRectShape(cmdW, cmdH, BOARD_RADIUS);
-      const rectGeom = new THREE.ExtrudeGeometry(rectShape, {
-        steps: 1,
-        depth: SPACER_DEPTH,
-        bevelEnabled: false,
-      });
-
-      const positions = [
-        { x: -width/2 + cmdW / 2, y: height/2 - cmdH / 2 },
-        { x: width/2 - cmdW / 2, y: height/2 - cmdH / 2 },
-        { x: -width/2 + cmdW / 2, y: -height/2 + cmdH / 2 },
-        { x: width/2 - cmdW / 2, y: -height/2 + cmdH / 2 },
-      ];
-
+      const finGeom = createFinGeometry();
       const entries = [
         { geometry: geometryRef.current!, offset: { x: 0, y: 0, z: 0 } },
-        ...positions.map(p => ({
-          geometry: rectGeom,
-          offset: { x: p.x, y: p.y, z: thickness },
+        ...getFinPlacements(width, height, sizeKey).map(p => ({
+          geometry: finGeom,
+          offset: { x: p.x, y: p.y - FIN_HEIGHT / 2, z: 0 },
         })),
       ];
 
-      const blob = mergeSTL(entries, `skadis_${width}x${height}x${thickness}mm_${sizeKey}`);
-      rectGeom.dispose();
+      const blob = mergeSTL(entries, `skadis_${width}x${height}x${thickness}mm_command-strip`);
+      finGeom.dispose();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -447,6 +429,21 @@ const SkadisGenerator = () => {
   };
 
   const generateSpacerSTL = () => {
+    if (mountType.startsWith('command-strip')) {
+      const sizeKey = mountType.split('-').pop() as keyof typeof COMMAND_STRIP;
+      const { parts } = createSpacerGeometries(sizeKey);
+      const entries = parts.map(part => ({ geometry: part.geometry, offset: part.offset }));
+      const blob = mergeSTL(entries, 'skadis_spacer_command-strip');
+      parts.forEach(part => part.geometry.dispose());
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'skadis_spacer_command-strip.stl';
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
     const innerRadius = screwHoleDiameter / 2;
     const outerRadius = screwHoleDiameter / 2 + 3;
 
@@ -545,7 +542,7 @@ const SkadisGenerator = () => {
                   <option value="none">None</option>
                   <option value="holes">Screw holes only</option>
                   <option value="spacers">With integrated spacers</option>
-                  <option value="command-strip-small">Command Strip (Small)</option>
+                  <option value="command-strip-small">Command Strip Spacers (Small)</option>
                   {/* <option value="command-strip-medium">Command Strip (Medium)</option>
                   <option value="command-strip-large">Command Strip (Large)</option> */}
                 </select>
@@ -598,13 +595,13 @@ const SkadisGenerator = () => {
               <h2 className="sr-only">Download Models</h2>
 
               <div className="flex gap-4 w-fit items-start">
-                {mountType === 'holes' && (
+                {(mountType === 'holes' || mountType.startsWith('command-strip')) && (
                   <button
                     onClick={generateSpacerSTL}
                     className="w-fit border border-white/30 bg-gray-700 hover:bg-gray-600 text-white font-medium py-3 px-6 rounded-full transition-colors flex items-center justify-center gap-2"
                   >
                     <DownloadIcon />
-                    Download 10mm Spacer STL
+                    {mountType === 'holes' ? 'Download 10mm Spacer STL' : 'Download Spacer STL'}
                   </button>
                 )}
 
@@ -621,6 +618,11 @@ const SkadisGenerator = () => {
               {mountType === 'holes' && (
                 <p className="mt-2 text-xs text-black dark:text-gray-400">
                   Print 4 spacers separately if you added mounting holes.
+                </p>
+              )}
+              {mountType.startsWith('command-strip') && (
+                <p className="mt-2 text-xs text-black dark:text-gray-400">
+                  Print 4 spacers, cut command strips to fit (~13mm wide), mount them to the wall, and slide the board down into them.
                 </p>
               )}
             </section>

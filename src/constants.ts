@@ -24,7 +24,15 @@ export const HOLE_SPACING_Y = 20;
 export const EDGE_MARGIN = 20;
 export const BOARD_RADIUS = 8;
 export const SPACER_DEPTH = 10;
+export const SPACER_WALL = 1;
+export const SPACER_BACK_WALL = 4;
 export const SHOW_OUTLINE = false;
+
+export const FIN_WIDTH_HEAD = 9;
+export const FIN_WIDTH_NECK = 5;
+export const FIN_DEPTH = 4;
+export const FIN_HEIGHT = 22;
+export const CHANNEL_CLEARANCE = 0.4;
 
 export const COMMAND_STRIP = {
   small:  { width: 15, height: 30, radius: 2 },

@@ -1,5 +1,10 @@
 import * as THREE from 'three';
-import { HOLE_WIDTH, HOLE_HEIGHT, HOLE_SPACING_X, HOLE_SPACING_Y, EDGE_MARGIN, BOARD_RADIUS } from './constants';
+import {
+  HOLE_WIDTH, HOLE_HEIGHT, HOLE_SPACING_X, HOLE_SPACING_Y, EDGE_MARGIN, BOARD_RADIUS,
+  SPACER_DEPTH, SPACER_WALL, SPACER_BACK_WALL,
+  FIN_WIDTH_HEAD, FIN_WIDTH_NECK, FIN_DEPTH, FIN_HEIGHT, CHANNEL_CLEARANCE,
+  COMMAND_STRIP,
+} from './constants';
 
 export interface BoardShapeParams {
   width: number;
@@ -44,29 +49,6 @@ const offsetPath = (path: THREE.Path, dx: number, dy: number) => {
   }
   path.currentPoint.x += dx;
   path.currentPoint.y += dy;
-};
-
-export const createRoundedRectShape = (
-  w: number,
-  h: number,
-  r: number
-): THREE.Shape => {
-  const shape = new THREE.Shape();
-  const hw = w / 2;
-  const hh = h / 2;
-  const cr = Math.min(r, hw, hh);
-
-  shape.moveTo(-hw + cr, -hh);
-  shape.lineTo(hw - cr, -hh);
-  shape.quadraticCurveTo(hw, -hh, hw, -hh + cr);
-  shape.lineTo(hw, hh - cr);
-  shape.quadraticCurveTo(hw, hh, hw - cr, hh);
-  shape.lineTo(-hw + cr, hh);
-  shape.quadraticCurveTo(-hw, hh, -hw, hh - cr);
-  shape.lineTo(-hw, -hh + cr);
-  shape.quadraticCurveTo(-hw, -hh, -hw + cr, -hh);
-
-  return shape;
 };
 
 // Binary STL format constants
@@ -281,7 +263,7 @@ export const generateBinarySTLBlob = (
 };
 
 export const mergeSTL = (
-  entries: { geometry: THREE.ExtrudeGeometry; offset?: { x: number; y: number; z: number } }[],
+  entries: { geometry: THREE.BufferGeometry; offset?: { x: number; y: number; z: number } }[],
   solidName: string
 ): Blob => {
   let totalTriangles = 0;
@@ -329,4 +311,114 @@ export const mergeSTL = (
   }
 
   return new Blob([buffer], { type: 'model/stl' });
+};
+
+const getSpacerDims = (sizeKey: keyof typeof COMMAND_STRIP) => {
+  const strip = COMMAND_STRIP[sizeKey];
+  const channelDepth = SPACER_DEPTH - SPACER_BACK_WALL;
+  const mouthWidth = FIN_WIDTH_NECK + CHANNEL_CLEARANCE;
+  const interiorWidth = mouthWidth + channelDepth;
+  return {
+    width: interiorWidth + 2 * SPACER_WALL,
+    height: strip.height + 2 * SPACER_WALL,
+  };
+};
+
+export const getFinPlacements = (
+  width: number,
+  height: number,
+  sizeKey: keyof typeof COMMAND_STRIP
+): { x: number; y: number }[] => {
+  const holesX = Math.floor((width - 2 * EDGE_MARGIN) / HOLE_SPACING_X) + 1;
+  const startX = (width - (holesX - 1) * HOLE_SPACING_X) / 2;
+  const spacerHeight = getSpacerDims(sizeKey).height;
+
+  const finCenterX = startX + HOLE_SPACING_X / 4;
+  const xLeft = finCenterX - width / 2;
+  const xRight = width - finCenterX - width / 2;
+
+  const edgeOffset = spacerHeight;
+  const topY = height / 2 - edgeOffset;
+  const canStack = height >= 2 * edgeOffset + 2 * FIN_HEIGHT;
+  const tops = [
+    { x: xLeft, y: topY },
+    { x: xRight, y: topY },
+  ];
+  if (!canStack) return tops;
+  return [...tops, { x: xLeft, y: -topY }, { x: xRight, y: -topY }];
+};
+
+export const createFinGeometry = (): THREE.ExtrudeGeometry => {
+  const halfHead = FIN_WIDTH_HEAD / 2;
+  const halfNeck = FIN_WIDTH_NECK / 2;
+  const shape = new THREE.Shape();
+  shape.moveTo(-halfHead, FIN_DEPTH);
+  shape.lineTo(-halfNeck, 0);
+  shape.lineTo(halfNeck, 0);
+  shape.lineTo(halfHead, FIN_DEPTH);
+  shape.closePath();
+
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    steps: 1,
+    depth: FIN_HEIGHT,
+    bevelEnabled: false,
+  });
+  geometry.rotateX(-Math.PI / 2);
+  return geometry;
+};
+
+export interface SpacerPart {
+  geometry: THREE.BufferGeometry;
+  offset: { x: number; y: number; z: number };
+}
+
+export interface SpacerGeometries {
+  dims: { width: number; height: number };
+  parts: SpacerPart[];
+}
+
+export const createSpacerGeometries = (
+  sizeKey: keyof typeof COMMAND_STRIP
+): SpacerGeometries => {
+  const dims = getSpacerDims(sizeKey);
+  const channelDepth = SPACER_DEPTH - SPACER_BACK_WALL;
+  const channelHeight = dims.height / 2 + FIN_HEIGHT / 2;
+  const halfOuter = dims.width / 2;
+  const halfMouth = (FIN_WIDTH_NECK + CHANNEL_CLEARANCE) / 2;
+  const halfInterior = halfMouth + channelDepth / 2;
+
+  const makeWall = (side: 1 | -1): THREE.ExtrudeGeometry => {
+    const shape = new THREE.Shape();
+    shape.moveTo(halfMouth * side, 0);
+    shape.lineTo(halfOuter * side, 0);
+    shape.lineTo(halfOuter * side, channelDepth);
+    shape.lineTo(halfInterior * side, channelDepth);
+    shape.closePath();
+    const geometry = new THREE.ExtrudeGeometry(shape, {
+      steps: 1,
+      depth: channelHeight,
+      bevelEnabled: false,
+    });
+    geometry.rotateX(-Math.PI / 2);
+    return geometry;
+  };
+
+  const bulkHeight = dims.height - channelHeight;
+  const bulk = new THREE.BoxGeometry(dims.width, bulkHeight, SPACER_DEPTH);
+
+  return {
+    dims,
+    parts: [
+      {
+        geometry: new THREE.BoxGeometry(dims.width, dims.height, SPACER_BACK_WALL),
+        offset: { x: 0, y: 0, z: -SPACER_DEPTH + SPACER_BACK_WALL / 2 },
+      },
+      { geometry: makeWall(1), offset: { x: 0, y: -FIN_HEIGHT / 2, z: 0 } },
+      { geometry: makeWall(-1), offset: { x: 0, y: -FIN_HEIGHT / 2, z: 0 } },
+      {
+        geometry: bulk,
+        offset: { x: 0, y: -dims.height / 2 + bulkHeight / 2, z: -SPACER_DEPTH / 2 },
+      },
+    ],
+  };
 };
