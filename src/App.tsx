@@ -1,8 +1,8 @@
 import { useReducer, useEffect, useRef, useDeferredValue, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { STORAGE_KEY, DEFAULTS, COUNTERSINK_DEPTH, SHOW_OUTLINE, BOARD_RADIUS } from './constants';
-import { buildBoardShape, generateBinarySTLBlob, mergeSTL } from './board';
+import { STORAGE_KEY, DEFAULTS, SPACER_DEPTH, SHOW_OUTLINE, BOARD_RADIUS, COMMAND_STRIP } from './constants';
+import { buildBoardShape, generateBinarySTLBlob, mergeSTL, createRoundedRectShape } from './board';
 import { Slider, Checkbox, SectionBox, Logo, DownloadIcon } from './components';
 
 const loadSettings = () => {
@@ -24,7 +24,7 @@ type State = {
   width: number;
   height: number;
   thickness: number;
-  mountType: 'none' | 'holes' | 'spacers';
+  mountType: 'none' | 'holes' | 'spacers' | 'command-strip-small' | 'command-strip-medium' | 'command-strip-large';
   screwHoleDiameter: number;
   screwHoleInset: number;
   extendTop: boolean;
@@ -292,7 +292,7 @@ const SkadisGenerator = () => {
 
       const ringGeom = new THREE.ExtrudeGeometry(ringShape, {
         steps: 1,
-        depth: COUNTERSINK_DEPTH,
+        depth: SPACER_DEPTH,
         bevelEnabled: false,
       });
 
@@ -317,6 +317,36 @@ const SkadisGenerator = () => {
       }
     }
 
+    if (mountType.startsWith('command-strip')) {
+      const sizeKey = mountType.split('-').pop() as keyof typeof COMMAND_STRIP;
+      const { width: cmdW, height: cmdH } = COMMAND_STRIP[sizeKey];
+      const rectShape = createRoundedRectShape(cmdW, cmdH, BOARD_RADIUS);
+      const rectGeom = new THREE.ExtrudeGeometry(rectShape, {
+        steps: 1,
+        depth: SPACER_DEPTH,
+        bevelEnabled: false,
+      });
+      const rectMaterial = new THREE.MeshStandardMaterial({
+        color: 0x595959,
+        roughness: 0.5,
+        metalness: 0.1,
+        side: THREE.FrontSide,
+      });
+
+      const positions = [
+        { x: -width/2 + cmdW / 2, y: height/2 - cmdH / 2 },
+        { x: width/2 - cmdW / 2, y: height/2 - cmdH / 2 },
+        { x: -width/2 + cmdW / 2, y: -height/2 + cmdH / 2 },
+        { x: width/2 - cmdW / 2, y: -height/2 + cmdH / 2 },
+      ];
+
+      for (const p of positions) {
+        const mesh = new THREE.Mesh(rectGeom.clone(), rectMaterial);
+        mesh.position.set(p.x, p.y, thickness);
+        sceneRef.current.add(mesh);
+      }
+    }
+
     if (controlsRef.current) {
       controlsRef.current.target.set(0, 0, 0);
       controlsRef.current.update();
@@ -338,7 +368,7 @@ const SkadisGenerator = () => {
 
       const extrudeSettings = {
         steps: 1,
-        depth: COUNTERSINK_DEPTH,
+        depth: SPACER_DEPTH,
         bevelEnabled: false,
       };
 
@@ -369,6 +399,42 @@ const SkadisGenerator = () => {
       return;
     }
 
+    if (mountType.startsWith('command-strip')) {
+      const sizeKey = mountType.split('-').pop() as keyof typeof COMMAND_STRIP;
+      const { width: cmdW, height: cmdH } = COMMAND_STRIP[sizeKey];
+      const rectShape = createRoundedRectShape(cmdW, cmdH, BOARD_RADIUS);
+      const rectGeom = new THREE.ExtrudeGeometry(rectShape, {
+        steps: 1,
+        depth: SPACER_DEPTH,
+        bevelEnabled: false,
+      });
+
+      const positions = [
+        { x: -width/2 + cmdW / 2, y: height/2 - cmdH / 2 },
+        { x: width/2 - cmdW / 2, y: height/2 - cmdH / 2 },
+        { x: -width/2 + cmdW / 2, y: -height/2 + cmdH / 2 },
+        { x: width/2 - cmdW / 2, y: -height/2 + cmdH / 2 },
+      ];
+
+      const entries = [
+        { geometry: geometryRef.current!, offset: { x: 0, y: 0, z: 0 } },
+        ...positions.map(p => ({
+          geometry: rectGeom,
+          offset: { x: p.x, y: p.y, z: thickness },
+        })),
+      ];
+
+      const blob = mergeSTL(entries, `skadis_${width}x${height}x${thickness}mm_${sizeKey}`);
+      rectGeom.dispose();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `skadis_${width}x${height}x${thickness}mm_command-strip.stl`;
+      a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
     const geometry = geometryRef.current;
     if (!geometry) return;
     const blob = generateBinarySTLBlob(geometry, `skadis_${width}x${height}x${thickness}mm`);
@@ -393,7 +459,7 @@ const SkadisGenerator = () => {
     
     const geometry = new THREE.ExtrudeGeometry(ringShape, {
       steps: 1,
-      depth: COUNTERSINK_DEPTH,
+      depth: SPACER_DEPTH,
       bevelEnabled: false
     });
     
@@ -473,16 +539,17 @@ const SkadisGenerator = () => {
                 <select
                   id="mountType"
                   value={mountType}
-                  onChange={(e) => dispatch({ mountType: e.target.value as 'none' | 'holes' | 'spacers' })}
+                  onChange={(e) => dispatch({ mountType: e.target.value as State['mountType'] })}
                   className="w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
                 >
                   <option value="none">None</option>
                   <option value="holes">Screw holes only</option>
                   <option value="spacers">With integrated spacers</option>
+                  <option value="command-strip-small">Command Strip (Small)</option>
                 </select>
               </div>
 
-              {mountType !== 'none' && (
+              {(mountType === 'holes' || mountType === 'spacers') && (
                 <>
                   <div className="mt-4">
                     <Slider label="Mount Diameter" name="screwHoleDiameter" value={screwHoleDiameter} min={3} max={8} step={0.05} suffix="mm" onChange={(e) => dispatch({ screwHoleDiameter: Number(e.target.value) })} />

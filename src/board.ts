@@ -4,7 +4,7 @@ import { HOLE_WIDTH, HOLE_HEIGHT, HOLE_SPACING_X, HOLE_SPACING_Y, EDGE_MARGIN, B
 export interface BoardShapeParams {
   width: number;
   height: number;
-  mountType: 'none' | 'holes' | 'spacers';
+  mountType: 'none' | 'holes' | 'spacers' | 'command-strip-small' | 'command-strip-medium' | 'command-strip-large';
   screwHoleDiameter: number;
   screwHoleInset: number;
   extendTop: boolean;
@@ -44,6 +44,29 @@ const offsetPath = (path: THREE.Path, dx: number, dy: number) => {
   }
   path.currentPoint.x += dx;
   path.currentPoint.y += dy;
+};
+
+export const createRoundedRectShape = (
+  w: number,
+  h: number,
+  r: number
+): THREE.Shape => {
+  const shape = new THREE.Shape();
+  const hw = w / 2;
+  const hh = h / 2;
+  const cr = Math.min(r, hw, hh);
+
+  shape.moveTo(-hw + cr, -hh);
+  shape.lineTo(hw - cr, -hh);
+  shape.quadraticCurveTo(hw, -hh, hw, -hh + cr);
+  shape.lineTo(hw, hh - cr);
+  shape.quadraticCurveTo(hw, hh, hw - cr, hh);
+  shape.lineTo(-hw + cr, hh);
+  shape.quadraticCurveTo(-hw, hh, -hw, hh - cr);
+  shape.lineTo(-hw, -hh + cr);
+  shape.quadraticCurveTo(-hw, -hh, -hw + cr, -hh);
+
+  return shape;
 };
 
 // Binary STL format constants
@@ -194,7 +217,7 @@ export const buildBoardShape = (params: BoardShapeParams): { shape: THREE.Shape;
     }
   }
 
-  const screwPositions = mountType !== 'none' ? [
+  const screwPositions = (mountType === 'holes' || mountType === 'spacers') ? [
     { x: -width/2 + screwHoleInset, y: -height/2 + screwHoleInset },
     { x: width/2 - screwHoleInset, y: -height/2 + screwHoleInset },
     { x: -width/2 + screwHoleInset, y: height/2 - screwHoleInset },
