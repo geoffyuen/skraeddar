@@ -546,6 +546,8 @@ const SkadisGenerator = () => {
                   <option value="holes">Screw holes only</option>
                   <option value="spacers">With integrated spacers</option>
                   <option value="command-strip-small">Command Strip (Small)</option>
+                  {/* <option value="command-strip-medium">Command Strip (Medium)</option>
+                  <option value="command-strip-large">Command Strip (Large)</option> */}
                 </select>
               </div>
 
