@@ -105,7 +105,9 @@ export const buildBoardShape = (params: BoardShapeParams): { shape: THREE.Shape;
   const hw = HOLE_WIDTH / 2;
   const hh = HOLE_HEIGHT / 2;
 
-  if (roundBottomLeft) {
+  if (extendBottom && extendLeft) {
+    shape.moveTo(-width/2 + hw, -height/2);
+  } else if (roundBottomLeft) {
     shape.moveTo(-width/2 + r, -height/2);
   } else {
     shape.moveTo(-width/2, -height/2);
@@ -123,7 +125,11 @@ export const buildBoardShape = (params: BoardShapeParams): { shape: THREE.Shape;
       shape.lineTo(xPos + hw, -height/2);
     }
   }
-  if (roundBottomRight) {
+  if (extendBottom && extendRight) {
+    shape.lineTo(width/2 - hw, -height/2);
+    shape.lineTo(width/2 - hw, -height/2 + hh - hw);
+    shape.quadraticCurveTo(width/2 - hw, -height/2 + hh, width/2, -height/2 + hh);
+  } else if (roundBottomRight) {
     shape.lineTo(width/2 - r, -height/2);
     shape.quadraticCurveTo(width/2, -height/2, width/2, -height/2 + r);
   } else {
@@ -139,7 +145,11 @@ export const buildBoardShape = (params: BoardShapeParams): { shape: THREE.Shape;
       shape.quadraticCurveTo(width/2 - hw, yPos + hh, width/2, yPos + hh);
     }
   }
-  if (roundTopRight) {
+  if (extendTop && extendRight) {
+    shape.lineTo(width/2, height/2 - hh);
+    shape.quadraticCurveTo(width/2 - hw, height/2 - hh, width/2 - hw, height/2 - hh + hw);
+    shape.lineTo(width/2 - hw, height/2);
+  } else if (roundTopRight) {
     shape.lineTo(width/2, height/2 - r);
     shape.quadraticCurveTo(width/2, height/2, width/2 - r, height/2);
   } else {
@@ -158,7 +168,11 @@ export const buildBoardShape = (params: BoardShapeParams): { shape: THREE.Shape;
       shape.lineTo(xPos - hw, height/2);
     }
   }
-  if (roundTopLeft) {
+  if (extendTop && extendLeft) {
+    shape.lineTo(-width/2 + hw, height/2);
+    shape.lineTo(-width/2 + hw, height/2 - hh + hw);
+    shape.quadraticCurveTo(-width/2 + hw, height/2 - hh, -width/2, height/2 - hh);
+  } else if (roundTopLeft) {
     shape.lineTo(-width/2 + r, height/2);
     shape.quadraticCurveTo(-width/2, height/2, -width/2, height/2 - r);
   } else {
@@ -174,7 +188,11 @@ export const buildBoardShape = (params: BoardShapeParams): { shape: THREE.Shape;
       shape.quadraticCurveTo(-width/2 + hw, yPos - hh, -width/2, yPos - hh);
     }
   }
-  if (roundBottomLeft) {
+  if (extendBottom && extendLeft) {
+    shape.lineTo(-width/2, -height/2 + hh);
+    shape.quadraticCurveTo(-width/2 + hw, -height/2 + hh, -width/2 + hw, -height/2 + hh - hw);
+    shape.lineTo(-width/2 + hw, -height/2);
+  } else if (roundBottomLeft) {
     shape.lineTo(-width/2, -height/2 + r);
     shape.quadraticCurveTo(-width/2, -height/2, -width/2 + r, -height/2);
   } else {
