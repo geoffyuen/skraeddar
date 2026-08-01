@@ -332,6 +332,35 @@ export const mergeSTL = (
   return new Blob([buffer], { type: 'model/stl' });
 };
 
+export interface STLEntry {
+  geometry: THREE.BufferGeometry;
+  offset?: { x: number; y: number; z: number };
+}
+
+export const flipForPrint = <T extends THREE.BufferGeometry>(geometry: T): T => {
+  const clone = geometry.clone() as T;
+  clone.rotateX(Math.PI);
+  return clone;
+};
+
+const _rotateVec = new THREE.Vector3();
+
+const transformEntries = (entries: STLEntry[], matrix: THREE.Matrix4): STLEntry[] =>
+  entries.map(e => {
+    const geometry = e.geometry.clone();
+    geometry.applyMatrix4(matrix);
+    if (!e.offset) return { geometry };
+    _rotateVec.set(e.offset.x, e.offset.y, e.offset.z).applyMatrix4(matrix);
+    return { geometry, offset: { x: _rotateVec.x, y: _rotateVec.y, z: _rotateVec.z } };
+  });
+
+export const flipEntriesForPrint = (entries: STLEntry[]): STLEntry[] =>
+  transformEntries(entries, new THREE.Matrix4().makeRotationX(Math.PI));
+
+// Stand the spacer on its bottom (hard-edge) end so it prints vertically.
+export const standForPrint = (entries: STLEntry[]): STLEntry[] =>
+  transformEntries(entries, new THREE.Matrix4().makeRotationX(Math.PI / 2));
+
 const getSpacerDims = (sizeKey: keyof typeof COMMAND_STRIP) => {
   const strip = COMMAND_STRIP[sizeKey];
   const channelDepth = SPACER_DEPTH - SPACER_BACK_WALL;

@@ -2,7 +2,7 @@ import { useReducer, useEffect, useRef, useDeferredValue, useState } from 'react
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { STORAGE_KEY, DEFAULTS, SPACER_DEPTH, SHOW_OUTLINE, BOARD_RADIUS, COMMAND_STRIP, FIN_HEIGHT } from './constants';
-import { buildBoardShape, generateBinarySTLBlob, mergeSTL, getFinPlacements, createFinGeometry, createSpacerGeometries } from './board';
+import { buildBoardShape, generateBinarySTLBlob, mergeSTL, getFinPlacements, createFinGeometry, createSpacerGeometries, flipForPrint, flipEntriesForPrint, standForPrint } from './board';
 import { Slider, Checkbox, SectionBox, Logo, DownloadIcon } from './components';
 
 const loadSettings = () => {
@@ -384,7 +384,9 @@ const SkadisGenerator = () => {
         })),
       ];
 
-      const blob = mergeSTL(entries, `skadis_${width}x${height}x${thickness}mm_spacers`);
+      const flipped = flipEntriesForPrint(entries);
+      const blob = mergeSTL(flipped, `skadis_${width}x${height}x${thickness}mm_spacers`);
+      flipped.forEach(e => e.geometry.dispose());
       ringGeom.dispose();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -406,7 +408,9 @@ const SkadisGenerator = () => {
         })),
       ];
 
-      const blob = mergeSTL(entries, `skadis_${width}x${height}x${thickness}mm_command-strip`);
+      const flipped = flipEntriesForPrint(entries);
+      const blob = mergeSTL(flipped, `skadis_${width}x${height}x${thickness}mm_command-strip`);
+      flipped.forEach(e => e.geometry.dispose());
       finGeom.dispose();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -419,7 +423,9 @@ const SkadisGenerator = () => {
 
     const geometry = geometryRef.current;
     if (!geometry) return;
-    const blob = generateBinarySTLBlob(geometry, `skadis_${width}x${height}x${thickness}mm`);
+    const flipped = flipForPrint(geometry);
+    const blob = generateBinarySTLBlob(flipped, `skadis_${width}x${height}x${thickness}mm`);
+    flipped.dispose();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -433,7 +439,9 @@ const SkadisGenerator = () => {
       const sizeKey = mountType.split('-').pop() as keyof typeof COMMAND_STRIP;
       const { parts } = createSpacerGeometries(sizeKey);
       const entries = parts.map(part => ({ geometry: part.geometry, offset: part.offset }));
-      const blob = mergeSTL(entries, 'skadis_spacer_command-strip');
+      const stood = standForPrint(entries);
+      const blob = mergeSTL(stood, 'skadis_spacer_command-strip');
+      stood.forEach(e => e.geometry.dispose());
       parts.forEach(part => part.geometry.dispose());
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
