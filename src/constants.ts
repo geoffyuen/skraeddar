@@ -26,6 +26,7 @@ export const BOARD_RADIUS = 8;
 export const SPACER_DEPTH = 10;
 export const SPACER_WALL = 1;
 export const SPACER_BACK_WALL = 4;
+export const SPACER_FILLET = 1;
 export const SHOW_OUTLINE = false;
 
 export const FIN_WIDTH_NECK = 5;

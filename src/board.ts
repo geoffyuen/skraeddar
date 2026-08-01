@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {
   HOLE_WIDTH, HOLE_HEIGHT, HOLE_SPACING_X, HOLE_SPACING_Y, EDGE_MARGIN, BOARD_RADIUS,
-  SPACER_DEPTH, SPACER_WALL, SPACER_BACK_WALL,
+  SPACER_DEPTH, SPACER_WALL, SPACER_BACK_WALL, SPACER_FILLET,
   FIN_WIDTH_HEAD, FIN_WIDTH_NECK, FIN_DEPTH, FIN_HEIGHT, FIN_RIDGE, CHANNEL_CLEARANCE,
   COMMAND_STRIP,
 } from './constants';
@@ -411,38 +411,69 @@ export const createSpacerGeometries = (
   const halfOuter = dims.width / 2;
   const halfMouth = (FIN_WIDTH_NECK + CHANNEL_CLEARANCE) / 2;
   const halfInterior = halfMouth + channelDepth / 2;
+  const R = SPACER_FILLET;
 
-  const makeWall = (side: 1 | -1): THREE.ExtrudeGeometry => {
-    const shape = new THREE.Shape();
-    shape.moveTo(halfMouth * side, 0);
-    shape.lineTo(halfOuter * side, 0);
-    shape.lineTo(halfOuter * side, channelDepth);
-    shape.lineTo(halfInterior * side, channelDepth);
-    shape.closePath();
+  const extrudeVertical = (shape: THREE.Shape, depth: number): THREE.ExtrudeGeometry => {
     const geometry = new THREE.ExtrudeGeometry(shape, {
       steps: 1,
-      depth: channelHeight,
+      depth,
       bevelEnabled: false,
     });
     geometry.rotateX(-Math.PI / 2);
     return geometry;
   };
 
+  const makeBackPlate = (): THREE.ExtrudeGeometry => {
+    const shape = new THREE.Shape();
+    shape.moveTo(-halfOuter, 0);
+    shape.lineTo(halfOuter, 0);
+    shape.lineTo(halfOuter, SPACER_BACK_WALL - R);
+    shape.quadraticCurveTo(halfOuter, SPACER_BACK_WALL, halfOuter - R, SPACER_BACK_WALL);
+    shape.lineTo(-halfOuter + R, SPACER_BACK_WALL);
+    shape.quadraticCurveTo(-halfOuter, SPACER_BACK_WALL, -halfOuter, SPACER_BACK_WALL - R);
+    shape.closePath();
+    return extrudeVertical(shape, dims.height);
+  };
+
+  const makeWall = (side: 1 | -1): THREE.ExtrudeGeometry => {
+    const shape = new THREE.Shape();
+    shape.moveTo(halfMouth * side, 0);
+    shape.lineTo((halfOuter - R) * side, 0);
+    shape.quadraticCurveTo(halfOuter * side, 0, halfOuter * side, R);
+    shape.lineTo(halfOuter * side, channelDepth);
+    shape.lineTo(halfInterior * side, channelDepth);
+    shape.closePath();
+    return extrudeVertical(shape, channelHeight);
+  };
+
   const bulkHeight = dims.height - channelHeight;
-  const bulk = new THREE.BoxGeometry(dims.width, bulkHeight, SPACER_DEPTH);
+  const makeBulk = (): THREE.ExtrudeGeometry => {
+    const shape = new THREE.Shape();
+    shape.moveTo(-halfOuter + R, 0);
+    shape.lineTo(halfOuter - R, 0);
+    shape.quadraticCurveTo(halfOuter, 0, halfOuter, R);
+    shape.lineTo(halfOuter, SPACER_DEPTH - R);
+    shape.quadraticCurveTo(halfOuter, SPACER_DEPTH, halfOuter - R, SPACER_DEPTH);
+    shape.lineTo(-halfOuter + R, SPACER_DEPTH);
+    shape.quadraticCurveTo(-halfOuter, SPACER_DEPTH, -halfOuter, SPACER_DEPTH - R);
+    shape.lineTo(-halfOuter, R);
+    shape.quadraticCurveTo(-halfOuter, 0, -halfOuter + R, 0);
+    shape.closePath();
+    return extrudeVertical(shape, bulkHeight);
+  };
 
   return {
     dims,
     parts: [
       {
-        geometry: new THREE.BoxGeometry(dims.width, dims.height, SPACER_BACK_WALL),
-        offset: { x: 0, y: 0, z: -SPACER_DEPTH + SPACER_BACK_WALL / 2 },
+        geometry: makeBackPlate(),
+        offset: { x: 0, y: -dims.height / 2, z: -SPACER_DEPTH + SPACER_BACK_WALL },
       },
       { geometry: makeWall(1), offset: { x: 0, y: -FIN_HEIGHT / 2, z: 0 } },
       { geometry: makeWall(-1), offset: { x: 0, y: -FIN_HEIGHT / 2, z: 0 } },
       {
-        geometry: bulk,
-        offset: { x: 0, y: -dims.height / 2 + bulkHeight / 2, z: -SPACER_DEPTH / 2 },
+        geometry: makeBulk(),
+        offset: { x: 0, y: -dims.height / 2, z: 0 },
       },
     ],
   };
