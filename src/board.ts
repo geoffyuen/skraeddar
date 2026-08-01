@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {
   HOLE_WIDTH, HOLE_HEIGHT, HOLE_SPACING_X, HOLE_SPACING_Y, EDGE_MARGIN, BOARD_RADIUS,
   SPACER_DEPTH, SPACER_WALL, SPACER_BACK_WALL,
-  FIN_WIDTH_HEAD, FIN_WIDTH_NECK, FIN_DEPTH, FIN_HEIGHT, CHANNEL_CLEARANCE,
+  FIN_WIDTH_HEAD, FIN_WIDTH_NECK, FIN_DEPTH, FIN_HEIGHT, FIN_RIDGE, CHANNEL_CLEARANCE,
   COMMAND_STRIP,
 } from './constants';
 
@@ -351,10 +351,17 @@ export const getFinPlacements = (
 export const createFinGeometry = (): THREE.ExtrudeGeometry => {
   const halfHead = FIN_WIDTH_HEAD / 2;
   const halfNeck = FIN_WIDTH_NECK / 2;
+  const slope = (halfHead - halfNeck) / FIN_DEPTH;
+  const zRidge = 0.6;
+
   const shape = new THREE.Shape();
   shape.moveTo(-halfHead, FIN_DEPTH);
-  shape.lineTo(-halfNeck, 0);
-  shape.lineTo(halfNeck, 0);
+  shape.lineTo(-(halfNeck + slope * zRidge), zRidge);
+  shape.lineTo(-(halfNeck + slope * zRidge + FIN_RIDGE), zRidge);
+  shape.lineTo(-(halfNeck + FIN_RIDGE), 0);
+  shape.lineTo(halfNeck + FIN_RIDGE, 0);
+  shape.lineTo(halfNeck + slope * zRidge + FIN_RIDGE, zRidge);
+  shape.lineTo(halfNeck + slope * zRidge, zRidge);
   shape.lineTo(halfHead, FIN_DEPTH);
   shape.closePath();
 
