@@ -34,8 +34,10 @@ export const FIN_DEPTH = SPACER_DEPTH - SPACER_BACK_WALL - 0.2;
 export const FIN_WIDTH_HEAD = FIN_WIDTH_NECK + FIN_DEPTH;
 export const FIN_HEIGHT = 22;
 export const FIN_RIDGE = 0.15;
+export const FIN_FILLET = 0.3;
 // If spacers are too tight, try 0.12. If rattles, raise to 0.2
 export const CHANNEL_CLEARANCE = 0.15;
+export const CHANNEL_FILLET = 0.3;
 
 export const COMMAND_STRIP = {
   small:  { width: 15, height: 30, radius: 2 },

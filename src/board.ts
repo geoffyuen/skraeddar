@@ -2,7 +2,8 @@ import * as THREE from 'three';
 import {
   HOLE_WIDTH, HOLE_HEIGHT, HOLE_SPACING_X, HOLE_SPACING_Y, EDGE_MARGIN, BOARD_RADIUS,
   SPACER_DEPTH, SPACER_WALL, SPACER_BACK_WALL, SPACER_FILLET,
-  FIN_WIDTH_HEAD, FIN_WIDTH_NECK, FIN_DEPTH, FIN_HEIGHT, FIN_RIDGE, CHANNEL_CLEARANCE,
+  FIN_WIDTH_HEAD, FIN_WIDTH_NECK, FIN_DEPTH, FIN_HEIGHT, FIN_RIDGE, FIN_FILLET,
+  CHANNEL_CLEARANCE, CHANNEL_FILLET,
   COMMAND_STRIP,
 } from './constants';
 
@@ -371,16 +372,24 @@ export const createFinGeometry = (): THREE.ExtrudeGeometry => {
   const halfNeck = FIN_WIDTH_NECK / 2;
   const slope = (halfHead - halfNeck) / FIN_DEPTH;
   const zRidge = 0.6;
+  const R = FIN_FILLET;
+
+  const slopeLen = Math.hypot(halfHead - (halfNeck + slope * zRidge), FIN_DEPTH - zRidge);
+  const slopeDx = (halfHead - (halfNeck + slope * zRidge)) / slopeLen;
+  const slopeDy = (FIN_DEPTH - zRidge) / slopeLen;
 
   const shape = new THREE.Shape();
-  shape.moveTo(-halfHead, FIN_DEPTH);
+  shape.moveTo(-halfHead + slopeDx * R, FIN_DEPTH - slopeDy * R);
   shape.lineTo(-(halfNeck + slope * zRidge), zRidge);
   shape.lineTo(-(halfNeck + slope * zRidge + FIN_RIDGE), zRidge);
   shape.lineTo(-(halfNeck + FIN_RIDGE), 0);
   shape.lineTo(halfNeck + FIN_RIDGE, 0);
   shape.lineTo(halfNeck + slope * zRidge + FIN_RIDGE, zRidge);
   shape.lineTo(halfNeck + slope * zRidge, zRidge);
-  shape.lineTo(halfHead, FIN_DEPTH);
+  shape.lineTo(halfHead - slopeDx * R, FIN_DEPTH - slopeDy * R);
+  shape.quadraticCurveTo(halfHead, FIN_DEPTH, halfHead - R, FIN_DEPTH);
+  shape.lineTo(-halfHead + R, FIN_DEPTH);
+  shape.quadraticCurveTo(-halfHead, FIN_DEPTH, -halfHead + slopeDx * R, FIN_DEPTH - slopeDy * R);
   shape.closePath();
 
   const geometry = new THREE.ExtrudeGeometry(shape, {
@@ -412,6 +421,10 @@ export const createSpacerGeometries = (
   const halfMouth = (FIN_WIDTH_NECK + CHANNEL_CLEARANCE) / 2;
   const halfInterior = halfMouth + channelDepth / 2;
   const R = SPACER_FILLET;
+  const Cr = CHANNEL_FILLET;
+  const cLen = Math.hypot(halfInterior - halfMouth, channelDepth);
+  const cdx = (halfInterior - halfMouth) / cLen;
+  const cdy = channelDepth / cLen;
 
   const extrudeVertical = (shape: THREE.Shape, depth: number): THREE.ExtrudeGeometry => {
     const geometry = new THREE.ExtrudeGeometry(shape, {
@@ -437,11 +450,13 @@ export const createSpacerGeometries = (
 
   const makeWall = (side: 1 | -1): THREE.ExtrudeGeometry => {
     const shape = new THREE.Shape();
-    shape.moveTo(halfMouth * side, 0);
+    shape.moveTo((halfMouth + Cr) * side, 0);
     shape.lineTo((halfOuter - R) * side, 0);
     shape.quadraticCurveTo(halfOuter * side, 0, halfOuter * side, R);
     shape.lineTo(halfOuter * side, channelDepth);
     shape.lineTo(halfInterior * side, channelDepth);
+    shape.lineTo((halfMouth + cdx * Cr) * side, cdy * Cr);
+    shape.quadraticCurveTo(halfMouth * side, 0, (halfMouth + Cr) * side, 0);
     shape.closePath();
     return extrudeVertical(shape, channelHeight);
   };
